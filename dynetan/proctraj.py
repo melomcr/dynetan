@@ -314,7 +314,8 @@ class DNAproc:
         print(allResNamesSet)  ; print()
 
         self.selRes = self.workU.select_atoms("segid " + " ".join(self.segIDs))
-        print("--->",len(self.selRes.residues),"total residues were selected for network analysis.") ; print()
+        print("---> " + Fore.GREEN + "{0} total residues".format(len(self.selRes.residues))
+              + Fore.RESET + " were selected for network analysis.") ; print()
 
         print(Fore.BLUE + "Segments verification:\n" + Fore.RESET)
 
@@ -329,64 +330,93 @@ class DNAproc:
         self.notSelResNamesSet = notSelResNamesSet
         self.notSelSegidSet = notSelSegidSet
     
-    def selectSystem(self, withSolvent=False):
+    def selectSystem(self, withSolvent=False, userSelStr=None):
         '''Selects all atoms used to define node groups.
         
-        Creates a final selection of atoms based on the user-defined residues and node groups.
-        This function also automates solvent and ion detection, for residues that make significant contacts with network nodes. Examples are structural water molecules and ions.
+        Creates a final selection of atoms based on the user-defined residues and
+        node groups. This function also automates solvent and ion detection, for 
+        residues that make significant contacts with network nodes. Examples are 
+        structural water molecules and ions.
+        
+        This function will automatically remove all hydrogen atoms from the system, 
+        since they are not used to detect contacts or to calculate correlations.
+        The standard selection string used is "not (name H* or name [123]H*)"
         
         Ultimately, an MDAnalysis universe is created with the necessary simulation data, reducing the amount of memory used by subsequent analysis.
         
         Args:
+            
             withSolvent (bool): Controls if the function will try to automatically detect solvent molecules.
-        
+            
+            userSelStr (str): Uses a user-defined seletion for the system. This disables automatic detection of solvent/ions/lipids and other residues that may have transient contact with the target system.
         '''
         
-        if withSolvent:
-            # With Solvent
-            checkSet = self.workU.select_atoms("(not (name H* or name [123]H*)) and segid " + " ".join(self.notSelSegidSet) )
+        if userSelStr:
+            print("Using user-defined selection string:")
+            print(userSelStr)
+            print("\nATTENTION: automatic identification of solvent and ions is DISABLED.")
+            
+            initialSel = self.workU.select_atoms(userSelStr)
+            
         else:
-            # Without Solvent
-            checkSet = self.workU.select_atoms("segid " + " ".join(self.notSelSegidSet) + \
-                " and not resname " + " ".join(self.h2oName) + " and not (name H* or name [123]H*)")
-        
-        numAutoFrames = self.numSampledFrames*self.numWinds
-
-        stride = int(np.floor(len(self.workU.trajectory)/numAutoFrames))
-
-        print("Checking {0} frames (striding {1})...".format(numAutoFrames, stride))
-
-        searchSelRes = self.selRes.select_atoms("not (name H* or name [123]H*)")
-
-        # Keeps a set with all residues that were close to the interaction region in ALL
-        #  sampled timesteps
-
-        resIndexDict = defaultdict(int)
-        for ts in tk.log_progress(self.workU.trajectory[:numAutoFrames*stride:stride], name="Frames",size=numAutoFrames):
+            if withSolvent:
+                if self.notSelSegidSet:
+                    checkSet = self.workU.select_atoms("(not (name H* or name [123]H*)) and segid " + " ".join(self.notSelSegidSet) )
+                else:
+                    print("WARNING: All segments have been selected for Network Analysis, none are left for automatic identification of structural solvent molecules or lipids.")
+                    checkSet = None
+            else:
+                if self.notSelSegidSet:
+                    checkSet = self.workU.select_atoms("segid " + " ".join(self.notSelSegidSet) + \
+                        " and not resname " + " ".join(self.h2oName) + " and not (name H* or name [123]H*)")
+                else:
+                    print("WARNING: All segments have been selected for Network Analysis, none are left for automatic identification of transient contacts.")
+                    checkSet = None
             
-            # Creates neighbor search object. We pass the atoms we want to check,
-            #   and then search using the main selection.
-            # This is expensive because it creates a KD-tree for every frame, 
-            #   but the search for Neighbors is VERY fast.
-            searchNeigh = mdaANS(checkSet)
-            
-            resNeigh = searchNeigh.search(searchSelRes, self.cutoffDist)
-            
-            for indx in resNeigh.residues.ix:
-                resIndexDict[indx] += 1
-            
+            if checkSet:
+                numAutoFrames = self.numSampledFrames*self.numWinds
 
-        resIndxList = [ k for k,v in resIndexDict.items() if v > int(numAutoFrames*self.contactPersistence) ]
+                stride = int(np.floor(len(self.workU.trajectory)/numAutoFrames))
 
-        checkSetMin = self.workU.residues[ np.asarray(resIndxList, dtype=int) ]
+                print("Checking {0} frames (striding {1})...".format(numAutoFrames, stride))
 
-        print("{} solvent residues will be added to the system.".format(len(checkSetMin.resnames)))
-        
-        selStr = "segid " + " ".join(self.segIDs) 
-        initialSel = self.workU.select_atoms(selStr)
-        initialSel = initialSel.union(checkSetMin.atoms)
-        initialSel = initialSel.select_atoms("not (name H* or name [123]H*)")
-        #initialSel
+                searchSelRes = self.selRes.select_atoms("not (name H* or name [123]H*)")
+
+                # Keeps a set with all residues that were close to the interaction region in ALL
+                #  sampled timesteps
+
+                resIndexDict = defaultdict(int)
+                for ts in tk.log_progress(self.workU.trajectory[:numAutoFrames*stride:stride], name="Frames",size=numAutoFrames):
+                    
+                    # Creates neighbor search object. We pass the atoms we want to check,
+                    #   and then search using the main selection.
+                    # This is expensive because it creates a KD-tree for every frame, 
+                    #   but the search for Neighbors is VERY fast.
+                    searchNeigh = mdaANS(checkSet)
+                    
+                    resNeigh = searchNeigh.search(searchSelRes, self.cutoffDist)
+                    
+                    for indx in resNeigh.residues.ix:
+                        resIndexDict[indx] += 1
+                    
+
+                resIndxList = [ k for k,v in resIndexDict.items() if v > int(numAutoFrames*self.contactPersistence) ]
+
+                checkSetMin = self.workU.residues[ np.asarray(resIndxList, dtype=int) ]
+
+                print("{} extra residues will be added to the system.".format(len(checkSetMin.resnames)))
+            
+                selStr = "segid " + " ".join(self.segIDs) 
+                initialSel = self.workU.select_atoms(selStr)
+                initialSel = initialSel.union(checkSetMin.atoms)
+                initialSel = initialSel.select_atoms("not (name H* or name [123]H*)")
+                
+            else:
+                # In case we do not have any residues in other segments to check for contacts,
+                # we take all user-selected segments and create the system for analysis.
+                selStr = "segid " + " ".join(self.segIDs) 
+                initialSel = self.workU.select_atoms(selStr)
+                initialSel = self.workU.select_atoms("not (name H* or name [123]H*)")
         
         print("The initial universe had {} atoms.".format( len(self.workU.atoms) ))
         
