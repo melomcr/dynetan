@@ -330,7 +330,7 @@ class DNAproc:
         self.notSelResNamesSet = notSelResNamesSet
         self.notSelSegidSet = notSelSegidSet
     
-    def selectSystem(self, withSolvent=False, userSelStr=None):
+    def selectSystem(self, withSolvent=False, userSelStr=None, verbose=0):
         '''Selects all atoms used to define node groups.
         
         Creates a final selection of atoms based on the user-defined residues and
@@ -405,7 +405,15 @@ class DNAproc:
                 checkSetMin = self.workU.residues[ np.asarray(resIndxList, dtype=int) ]
 
                 print("{} extra residues will be added to the system.".format(len(checkSetMin.resnames)))
-            
+                
+                if verbose:
+                    print("New residue types included in the system selection:")
+                    for resname in set(checkSetMin.resnames):
+                        print(resname)
+                    print("New residues included in the system selection:")
+                    for res in set(checkSetMin.residues):
+                        print(res)
+                
                 selStr = "segid " + " ".join(self.segIDs) 
                 initialSel = self.workU.select_atoms(selStr)
                 initialSel = initialSel.union(checkSetMin.atoms)
@@ -434,7 +442,7 @@ class DNAproc:
                     format=mdaMemRead)
         self.workU
         
-    def prepareNetwork(self):
+    def prepareNetwork(self, verbose=0):
         '''Prepare network representation of the system.
         
         Checks if we know how to treat all types of residues in the final system selection. Every residue will generate one or more nodes in the final network. This function also processes and stores the groups of atoms that define each node group in specialized data structures.
@@ -470,7 +478,7 @@ class DNAproc:
             else:
                 # If the residue is not an ION, check for Hydrogen atoms.
                 
-                # Adds hydrogen atomss to a groups of atoms in every residue.
+                # Adds hydrogen atoms to a groups of atoms in every residue.
                 for atm in res.atoms:
                     # Assume it is a hydrogen and bind it to the group of the atom
                     # it is connected to.
@@ -508,7 +516,11 @@ class DNAproc:
         selStr += [ "(resname {0} and name {1})".format(k," ".join(v)) for k,v in self.customResNodes.items() ]
         # Combines all statements into one selection string
         selStr = " or ".join(selStr)
-
+        
+        if verbose:
+            print("Selection string for atoms that represent network nodes:")
+            print(selStr)
+        
         self.nodesAtmSel = self.workU.select_atoms(selStr)
 
         self.numNodes = self.nodesAtmSel.n_atoms
@@ -531,7 +543,12 @@ class DNAproc:
         # Verification: checks if there are any "-1" left. If so, that atom was not assigned a node.
         loneAtms = np.where( self.atomToNode < 0 )[0]
         if len(loneAtms) > 0:
+            print("ERROR: Atoms were not assigned to any node! This can be a problem with your definition of nodes and atom groups.")
+            print( "Lone atoms: ")
             print( loneAtms )
+            print( "Lone atoms (types and residues): ")
+            for atm in loneAtms:
+                print( self.workU.atoms[atm] )
         
         # Determine groups of atoms that define each node.
         # We need all this because the topology in the PSF may 
@@ -706,12 +723,12 @@ class DNAproc:
             print("(That's {0}%, by the way)".format( round((len(pairs)/(totalPairs))*100,1) ))
         
     
-    def filterContacts(self, notSameRes=True, notConsecutiveRes=False, removeIsolatedNodes=True):
+    def filterContacts(self, notSameRes=True, notConsecutiveRes=False, removeIsolatedNodes=True, verbose=0):
         '''Filters network contacts over the system.
         
         The function removes edges and nodes in preparation for network analysis. Traditionally, edges between nodes within the same residue are removed, as well as edges between nodes in consecutive residues within the same polymer chain (protein or nucleic acid). Essentially, nodes that have covalent bonds connecting their node groups can bias the analysis and hide important nonbonded interactions.
         
-        The function also removes nodes that are isolated and make no contacts with any other nodes. Examples are ions or solvent residues that were initially included in the system throught the preliminary atomated solvent detection routine, but did not reach the contact treshold for being part of the final system.
+        The function also removes nodes that are isolated and make no contacts with any other nodes. Examples are ions or solvent residues that were initially included in the system through the preliminary atomated solvent detection routine, but did not reach the contact treshold for being part of the final system.
         
         After filtering nodes and edges, the function updates the MDAnalysis universe and network data.
         
@@ -746,23 +763,46 @@ class DNAproc:
             self._genContactMatrix()
             
             # Gets indices for nodes with no contacts
-            contactNodesArray = ~(np.sum(self.contactMat, axis=1) == 0)
             noContactNodesArray = (np.sum(self.contactMat, axis=1) == 0)
+            contactNodesArray   = ~(noContactNodesArray)
             
             # Atom selection for nodes with contact
             contactNodesSel = self.nodesAtmSel.atoms[ contactNodesArray ]
             noContactNodesSel = self.nodesAtmSel.atoms[ noContactNodesArray ]
             
+            ### Kepp nodes that belong to residues with at least one network-bound node.
+            # This is important in lipids and nucleotides that may have multiple nodes,
+            # and only one is connected to the system.
+            # First we select *residues* which have at least one node in contact.
+            resNoContacts = list(set(noContactNodesSel.residues.ix) - set(contactNodesSel.residues.ix))
+            # Then we create an atom selection for residues with no nodes in contact.
+            noContactNodesSel = self.nodesAtmSel.residues[resNoContacts]
+            # Finaly we update the selection for all nodes that belong to residues with
+            # at least one node in contact.
+            mask = np.ones(len(self.nodesAtmSel.residues), dtype=bool)
+            mask[ resNoContacts ] = False
+            contactNodesSel = self.nodesAtmSel.residues[mask].atoms.intersection(self.nodesAtmSel)
+            
+            # We also have to update the contact matrix that represent nodes which will
+            # be kept in the system. For this we will build another mask.
+            nodeMask = np.ones(len(self.nodesAtmSel.atoms.ids), dtype=bool)
+            for indx,atm in enumerate(self.nodesAtmSel.atoms):
+                # We check if the atom belongs to the selection of atoms that will be
+                # kept in the system.
+                nodeMask[indx] = atm.id in contactNodesSel.atoms.ids
+            
             # Checks if there is any node that does not make contacts to ANY other node.
             print("We found {0} nodes with no contacts.".format(len(noContactNodesSel)))
-            noContactNodesSel.names
+            if verbose:
+                for atm in noContactNodesSel.atoms:
+                    print(atm)
             
             # Trims matrices
-            self.contactMatAll = self.contactMatAll[:, ~(np.sum(self.contactMat, axis=1) == 0),  :]
-            self.contactMatAll = self.contactMatAll[:, :,  ~(np.sum(self.contactMat, axis=0) == 0)]
+            self.contactMatAll = self.contactMatAll[:, nodeMask,  :]
+            self.contactMatAll = self.contactMatAll[:, :,  nodeMask]
 
-            self.contactMat = self.contactMat[ ~(np.sum(self.contactMat, axis=1) == 0), :]
-            self.contactMat = self.contactMat[:,  ~(np.sum(self.contactMat, axis=0) == 0)]
+            self.contactMat = self.contactMat[ nodeMask, :]
+            self.contactMat = self.contactMat[:, nodeMask]
             
             print("\nIsolated nodes removed. We now have {} nodes in the system\n".format(self.contactMatAll[0].shape[0]) )
             print("Running new contact matrix sanity check...")
@@ -816,6 +856,9 @@ class DNAproc:
                 print("\nERROR: atom assignment incomplete!")
                 print("The following atoms were not assigned a node:")
                 print( loneAtms )
+                print( "Lone atoms (types and residues): ")
+                for atm in loneAtms:
+                    print( self.workU.atoms[atm] )
             
             #########################
             
