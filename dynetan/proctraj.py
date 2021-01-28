@@ -23,6 +23,8 @@ import networkx as nx
 import community
 
 from networkx                       import eigenvector_centrality_numpy as nxeigencentrality
+from networkx                       import edge_betweenness_centrality as nxbetweenness
+from networkx.algorithms.shortest_paths.dense import floyd_warshall_predecessor_and_distance as nxFWPD
 
 from MDAnalysis.lib.NeighborSearch  import AtomNeighborSearch   as mdaANS
 from MDAnalysis.coordinates.memory  import MemoryReader         as mdaMemRead
