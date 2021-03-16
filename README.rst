@@ -17,14 +17,14 @@ Tutorial
 
 For an introduction to this implementation, a jupyter notebook tutorial has been prepared and released along with its latest publication:
 
-* Generalized correlation-based dynamical network analysis: a new high-performance approach for identifying allosteric communications in molecular dynamics trajectories. In revision (2020).
+* Generalized correlation-based dynamical network analysis: a new high-performance approach for identifying allosteric communications in molecular dynamics trajectories. J. Chem. Phys. (2020). DOI: `10.1063/5.0018980 <https://doi.org/10.1063/5.0018980>`_
 
 Resources and References
 ------------------------
 
 For the background on Dynamical Network Analysis, see the following papers that describe its development:
 
-* Generalized correlation-based dynamical network analysis: a new high-performance approach for identifying allosteric communications in molecular dynamics trajectories. In revision (2020).
+* Generalized correlation-based dynamical network analysis: a new high-performance approach for identifying allosteric communications in molecular dynamics trajectories. J. Chem. Phys. (2020). DOI: `10.1063/5.0018980 <https://doi.org/10.1063/5.0018980>`_
 
 * Experimental and computational determination of tRNA dynamics. FEBS Letters (2010). DOI: `10.1016/j.febslet.2009.11.061 <https://doi.org/10.1016/j.febslet.2009.11.061>`_
 
