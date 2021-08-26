@@ -30,6 +30,7 @@ setuptools.setup(
         "ipywidgets",
         "networkx",
         "numba",
+        "cython",
         "h5py",
         "pympler",
         "python-louvain",
