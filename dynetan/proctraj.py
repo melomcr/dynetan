@@ -38,6 +38,10 @@ from collections    import OrderedDict, defaultdict
 
 import copy,os
 
+# For timing and benchmarks
+from timeit import default_timer as timer
+from datetime import timedelta
+
 ##################################################
 ##################################################
 
@@ -112,6 +116,8 @@ class DNAproc:
         
         self.interNodePairs         = None
         self.contactNodesInter      = None
+        
+        self.distanceMode           = ct.MODE_ALL
         
     def setNumWinds(self, numWinds):
         '''Set number of windows.
@@ -199,6 +205,31 @@ class DNAproc:
         '''
         
         self.usrNodeGroups = usrNodeGroups
+    
+    def setDistanceMode(self, mode="all"):
+        '''Set the distance calculation method to find nodes in contact.
+        
+        The supported options are:
+        - "all", which calculates all-to-all distances between selected atoms in the system.
+        - "capped", which uses a kdtree algorithm to only calculate distances between atoms closer than the network distance cutoff.
+        
+        The "all" option will be faster for smaller systems. The "capped" option will benefit larger systems as it will require less memory.
+        
+        .. note:: See also :py:func:`setCutoffDist`.
+        
+        Args:
+            mode (str) : Distance calculation mode. Options are "all" or "capped".
+        
+        '''
+        
+        if mode == "all":
+            self.distanceMode = ct.MODE_ALL
+        elif mode == "capped":
+            self.distanceMode = ct.MODE_CAPPED
+        else:
+            print("ERROR: Mode \"{}\" not recognized.".format(mode))
+            print("Using default mode \"all\"")
+            self.distanceMode = ct.MODE_ALL
     
     def getU(self):
         '''Return MDAnalysis universe object.
@@ -625,7 +656,14 @@ class DNAproc:
         nAtoms = selectionAtms.n_atoms
         
         # Array to receive all-to-all distances, at every step
-        tmpDists = np.zeros( int(nAtoms*(nAtoms-1)/2), dtype=float )
+        if self.distanceMode == ct.MODE_ALL:
+            # This array will store all distances between all atoms.
+            tmpDists = np.zeros( int(nAtoms*(nAtoms-1)/2), dtype=float )
+        elif self.distanceMode == ct.MODE_CAPPED:
+            # This array will only be modified to store distances shorter than the cutoff.
+            # Since all other distances are larger, we initialize the array with an arbitrarily
+            #   large value.
+            tmpDists =  np.full(  int(nAtoms*(nAtoms-1)/2), self.cutoffDist*2, dtype=float )
         
         # Array to get minimum distances per node
         tmpDistsAtms = np.full( nAtoms, self.cutoffDist*2, dtype=float )
@@ -638,9 +676,10 @@ class DNAproc:
             # Calculates distances to determine contact matrix
             ct.getContactsC(selectionAtms, self.numNodes, nAtoms, self.cutoffDist, tmpDists, tmpDistsAtms, 
                         contactMat, self.atomToNode, 
-                        self.nodeGroupIndicesNP, self.nodeGroupIndicesNPAux)
+                        self.nodeGroupIndicesNP, self.nodeGroupIndicesNPAux,
+                        distMode=self.distanceMode)
 
-    def findContacts(self, stride=1):
+    def findContacts(self, stride=1, verbose=0):
         '''Finds all nodes in contact.
         
         This is the main user interface access to calculate nodes in contact. This function automatically splits the whole trajectory into windows, allocates NumPy array objects to speed up claculations, and leverages MDAnalysis parallel implementation to determine atom distances.
@@ -671,8 +710,16 @@ class DNAproc:
             end = (winIndx+1)*winLen
             
             ## RUNs calculation
+            if verbose:
+                print("Starting contact calculation...")
+                start = timer()
+                
             self._contactTraj( self.contactMatAll[winIndx, :, :], beg, end, stride)
-
+            
+            if verbose:
+                end = timer()
+                print("Time for contact calculation:", timedelta(seconds=end-start))
+            
             self.contactMatAll[winIndx, :, :] = np.where(self.contactMatAll[winIndx, :, :] > contactCutoff, 1, 0)
 
             for i in range(self.numNodes):
@@ -1085,7 +1132,7 @@ class DNAproc:
             if not np.allclose(self.corrMatAll[win, :, :], self.corrMatAll[win, :, :].T, atol=0.1):
                 print("ERROR: Correlation matrix for window {0} is NOT symmetric!!".format(win))
                 
-    def calcCartesian(self, backend="serial"):
+    def calcCartesian(self, backend="serial", verbose=0):
         '''Main interface for calculation of cartesian distances.
         
         Determines the shortest cartesian distance between atoms in node groups of all network nodes. Using a sampling of simulation frames, the function also calculates statistics on such measures, including mean distance, standard error of the mean, minimum, and maximum.
@@ -1094,7 +1141,7 @@ class DNAproc:
         .. note:: See also :py:func:`~dynetan.contact.calcDistances` and :py:func:`~dynetan.toolkit.getCartDist`.
         
         Args:
-            backend (str) : Defines which MDAnalysis backend will be used for calculation of cartesian distances. Options are `serial` or `openmp`.
+            backend (str) : Defines which MDAnalysis backend will be used for calculation of cartesian distances. Options are `serial` or `openmp`. This option is ignored if the ditance mode is not "all".
         
         '''
         
@@ -1121,7 +1168,8 @@ class DNAproc:
                                             size=numFramesDists, name="MEAN: Timesteps")):
             
             ct.calcDistances(selectionAtms, self.numNodes, selectionAtms.n_atoms, self.atomToNode, 
-                            self.nodeGroupIndicesNP, self.nodeGroupIndicesNPAux, nodeDistsTmp, backend)
+                            self.cutoffDist, self.nodeGroupIndicesNP, self.nodeGroupIndicesNPAux, nodeDistsTmp, 
+                            backend, distMode=self.distanceMode, verbose=verbose)
             
             # Mean
             self.nodeDists[0, :] += nodeDistsTmp
@@ -1133,10 +1181,13 @@ class DNAproc:
         self.nodeDists[3, :] = self.nodeDists[0, :]
 
         ## Standard Error of the Mean
-        for indx, ts in enumerate(tk.log_progress(self.workU.trajectory[0:maxFrame:steps], 
+        for indx, ts in enumerate(tk.log_progress(self.workU.trajectory[0:maxFrame:steps],
                                             size=numFramesDists, name="SEM/MIN/MAX: Timesteps")):
-            # serial vs OpenMP
-            mdadist.self_distance_array(self.nodesAtmSel.positions, result=nodeDistsTmp, backend=backend)
+            
+            #mdadist.self_distance_array(self.nodesAtmSel.positions, result=nodeDistsTmp, backend=backend)
+            ct.calcDistances(selectionAtms, self.numNodes, selectionAtms.n_atoms, self.atomToNode, 
+                            self.cutoffDist, self.nodeGroupIndicesNP, self.nodeGroupIndicesNPAux, nodeDistsTmp, 
+                            backend, distMode=self.distanceMode, verbose=verbose)
             
             # Accumulates the squared difference
             self.nodeDists[1, :] += np.square( self.nodeDists[0, :] - nodeDistsTmp )

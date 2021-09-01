@@ -7,10 +7,17 @@
 import numpy as np
 
 from MDAnalysis.analysis            import distances            as mdadist 
-
+from MDAnalysis.lib                 import distances            as mdalibdist
 from numba import jit
 
 import cython
+
+# For timing and benchmarks
+from timeit import default_timer as timer
+from datetime import timedelta
+
+MODE_ALL    = 0
+MODE_CAPPED = 1
 
 @jit('i8(i4, i8, i4)', nopython=True)
 def getLinIndexNumba(src, trgt, n):
@@ -86,7 +93,6 @@ def atmToNodeDist(numNodes, nAtoms, tmpDists, atomToNode, nodeGroupIndicesNP, no
                      tmpDistsAtms[nextIfirst:])
             
         for pairNode in range(i+1, numNodes):
-            np.where(atomToNode == pairNode)
             
             # Access the shortests distances between atoms from "pairNode" and the current node "i"
             minDist = np.min(tmpDistsAtms[ np.where(atomToNode == pairNode) ])
@@ -99,12 +105,12 @@ def atmToNodeDist(numNodes, nAtoms, tmpDists, atomToNode, nodeGroupIndicesNP, no
 # High memory usage (nAtoms*(nAtoms-1)/2), calcs all atom distances at once.
 # We use self_distance_array and iterate over the trajectory.
 # https://www.mdanalysis.org/mdanalysis/documentation_pages/analysis/distances.html
-def calcDistances(selection, numNodes, nAtoms, atomToNode, 
-                       nodeGroupIndicesNP, nodeGroupIndicesNPAux, nodeDists, backend="serial" ):
+def calcDistances(selection, numNodes, nAtoms, atomToNode,  cutoffDist,
+                       nodeGroupIndicesNP, nodeGroupIndicesNPAux, nodeDists, backend="serial", distMode=MODE_ALL, verbose=0):
     '''Executes MDAnalysis atom distance calculation and node cartesian distance calculation.
     
-    This function is a wrapper for two optimized distance calculation and node distance calculation calls.
-    The first is MDAnalysis' `self_distance_array`. The second is the internal :py:func:`atmToNodeDist`.
+    This function is a wrapper for two optimized atomic distance calculation and node distance calculation calls.
+    The first is one of MDAnalysis' atom distance calculation functions (either `self_distance_array` or `self_capped_distance`). The second is the internal :py:func:`atmToNodeDist`.
     All results are stored in pre-allocated NumPy arrays.
     
     This is intended as an analysis tool to allow the comparison of network distances and cartesian distances. It is similar to :py:func:`getContactsC`, which is optimized for contact detection.
@@ -114,21 +120,100 @@ def calcDistances(selection, numNodes, nAtoms, atomToNode,
         numNodes (int): Number of nodes in the system.
         nAtoms (int) : Number of atoms in atom groups represented by system nodes. Usually hydrogen atoms are not included in contact detection, and are not present in atom groups.
         atomToNode (obj) : NumPy array that maps atoms in atom groups to their respective nodes.
+        cutoffDist (float): Distance cutoff used to capp distance calculations. 
         nodeGroupIndicesNP (obj) : NumPy array with atom indices for all atoms in each node group.
         nodeGroupIndicesNPAux (obj) : Auxiliary NumPy array with the indices of the first atom in each atom group, as listed in `nodeGroupIndicesNP`.
         nodeDists (obj) : Pre-allocated array to store cartesian distances.
-        backend (str) : Controls how MDAnalysis will perform its distance calculations. Options are  `serial` and `openmp`.
+        backend (str) : Controls how MDAnalysis will perform its distance calculations. Options are  `serial` and `openmp`. This option is ignored if the ditance mode is not "all".
+        distMode (str): Distance calculation method. Options are 0 (for mode "all") and 1 (for mode "capped").
+        verbose (int): Controls informational output.
         
     '''
     
+    if verbose:
+        print("There are {} nodes and {} atoms in this system.".format(numNodes, nAtoms))
     
-    tmpDists = np.zeros( int(nAtoms*(nAtoms-1)/2), dtype=np.float64 )
-    
-    # serial vs OpenMP
-    mdadist.self_distance_array(selection.positions, result=tmpDists, backend=backend)
+    if distMode == MODE_ALL:
+        
+        if verbose:
+            print("creating array with {} elements...".format(int(nAtoms*(nAtoms-1)/2)))
+            start = timer()
+            
+        tmpDists = np.zeros( int(nAtoms*(nAtoms-1)/2), dtype=np.float64 )
+        
+        if verbose:
+            end = timer()
+            print("Time for matrix:", timedelta(seconds=end-start))
+        
+        if verbose:
+            print("running self_distance_array...")
+            start = timer()
+        
+        # serial vs OpenMP
+        mdadist.self_distance_array(selection.positions, result=tmpDists, backend=backend)
+        
+        if verbose:
+            end = timer()
+            print("Time for contact calculation:", timedelta(seconds=end-start))
+        
+    if distMode == MODE_CAPPED:
+        
+        if verbose:
+            print("creating array with {} elements...".format(int(nAtoms*(nAtoms-1)/2)))
+            start = timer()
+        
+        tmpDists =  np.full( int(nAtoms*(nAtoms-1)/2), cutoffDist*2, dtype=float )
+        
+        if verbose:
+            end = timer()
+            print("Time for matrix:", timedelta(seconds=end-start))
+        
+        if verbose:
+            print("running self_capped_distance...")
+            start = timer()
+            
+        # method options are: 'bruteforce' 'nsgrid' 'pkdtree'
+        pairs, distances = mdalibdist.self_capped_distance(selection.positions, max_cutoff=cutoffDist, 
+                                    min_cutoff=None, box=None, method='pkdtree', return_distances=True)
+        
+        if verbose:
+            end = timer()
+            print("Time for contact calculation:", timedelta(seconds=end-start))
+            
+            print("Found {} pairs and {} distances".format(len(pairs), len(distances)) )
+        
+        if verbose:
+            print("loading distances in array...")
+            start = timer()
+            if verbose > 1:
+                startLoop = timer()
+        
+        for k in range(len(pairs)):
+            i,j = pairs[k]
+            
+            if verbose > 1:
+                if not k % 1000:
+                    print("Loaded {} distances.".format(k))
+                    print("Time for {} distances: {}".format(k, timedelta(seconds=timer()-startLoop)))
+                    startLoop = timer()
+                
+            # Go from 2D node indices to 1D (numNodes*(numNodes-1)/2) indices:
+            ijLI = getLinIndexNumba(i, j, nAtoms)
+            tmpDists[ ijLI ] = distances[k]
+            
+        if verbose:
+            end = timer()
+            print("Time for loading distances:", timedelta(seconds=end-start))
+            
+            print("running atmToNodeDist...")
+            start = timer()
     
     # Translate atoms distances in minimum node distance.
     atmToNodeDist(numNodes, nAtoms, tmpDists, atomToNode, nodeGroupIndicesNP, nodeGroupIndicesNPAux, nodeDists)
+    
+    if verbose:
+        end = timer()
+        print("Time for atmToNodeDist:", timedelta(seconds=end-start))
 
 @cython.cfunc
 @cython.returns(cython.int)
@@ -253,7 +338,8 @@ def getContactsC(selection, numNodes,
                         contactMat,
                         atomToNode,
                         nodeGroupIndicesNP,
-                        nodeGroupIndicesNPAux):
+                        nodeGroupIndicesNPAux,
+                        distMode=MODE_ALL):
     '''Executes MDAnalysis atom distance calculation and node contact detection.
     
     This function is Cython compiled as a wrapper for two optimized distance calculation and contact determination calls.
@@ -275,8 +361,19 @@ def getContactsC(selection, numNodes,
     
     '''
     
-    # serial vs OpenMP
-    mdadist.self_distance_array(selection.positions, result=tmpDists, backend='openmp')
+    if distMode == MODE_ALL:
+        # serial vs OpenMP
+        mdadist.self_distance_array(selection.positions, result=tmpDists, backend='openmp')
+    
+    if distMode == MODE_CAPPED:
+        # method options are: 'bruteforce' 'nsgrid' 'pkdtree'
+        pairs, distances = mdalibdist.self_capped_distance(selection.positions, max_cutoff=cutoffDist, min_cutoff=None, box=None,
+                                    method='pkdtree', return_distances=True)
+        
+        for k, [i, j] in enumerate(pairs):
+            # Go from 2D node indices to 1D (nAtoms*(nAtoms-1)/2) indices:
+            ijLI = getLinIndexC(i, j, nAtoms)
+            tmpDists[ ijLI ] = distances[k]
     
     calcContactC(numNodes, nAtoms, cutoffDist, tmpDists, tmpDistsAtms, 
                  contactMat, atomToNode, nodeGroupIndicesNP, nodeGroupIndicesNPAux)
