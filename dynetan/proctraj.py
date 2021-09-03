@@ -469,11 +469,17 @@ class DNAproc:
         # We now load the new universe to memory, with coordinates from the selected residues.
         
         print("Loading universe to memory...")
-
-        self.workU.load_new(mdaAFF(lambda ag: ag.positions.copy(),
-                                    initialSel).run().results, 
-                    format=mdaMemRead)
-        self.workU
+        
+        resObj = mdaAFF(lambda ag: ag.positions.copy(), initialSel).run().results
+        
+        # This checks the type of the MDAnalysis results. Prior to version 2.0.0,
+        # MDA returned a numpy.ndarray with the trajectory coordinates. After
+        # version 2.0.0, it returns a results object that contains the trajectory.
+        # With this check, the code can handle both APIs.
+        if not isinstance(resObj, np.ndarray):
+            resObj = resObj['timeseries']
+        
+        self.workU.load_new(resObj ,format=mdaMemRead)
         
     def prepareNetwork(self, verbose=0):
         '''Prepare network representation of the system.
@@ -872,9 +878,17 @@ class DNAproc:
             self.workU = mda.core.universe.Merge(allSel)
             
             # We now create a new universe with coordinates from the selected residues
-            self.workU.load_new(mdaAFF(lambda ag: ag.positions.copy(),
-                              allSel).run().results, format=mdaMemRead)
+            resObj = mdaAFF(lambda ag: ag.positions.copy(), allSel).run().results
             
+            # This checks the type of the MDAnalysis results. Prior to version 2.0.0,
+            # MDA returned a numpy.ndarray with the trajectory coordinates. After
+            # version 2.0.0, it returns a results object that contains the trajectory.
+            # With this check, the code can handle both APIs.
+            if not isinstance(resObj, np.ndarray):
+                resObj = resObj['timeseries']
+            
+            self.workU.load_new(resObj ,format=mdaMemRead)
+        
             # Regenerate selection of atoms that represent nodes.
             # We use the atom selection structure from the previous universe (that still had nodes with
             #   no contacts) to create selection strings and apply them to the new, smaller universe.
