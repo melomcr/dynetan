@@ -19,6 +19,11 @@ For an introduction to this implementation, a jupyter notebook tutorial has been
 
 * Generalized correlation-based dynamical network analysis: a new high-performance approach for identifying allosteric communications in molecular dynamics trajectories. J. Chem. Phys. (2020). DOI: `10.1063/5.0018980 <https://doi.org/10.1063/5.0018980>`_
 
+Documentation
+------------------------
+
+A full documentation can be found at [https://dynamical-network-analysis.readthedocs.io/en/latest/index.html](https://dynamical-network-analysis.readthedocs.io/en/latest/index.html).
+
 Resources and References
 ------------------------
 

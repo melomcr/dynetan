@@ -644,7 +644,7 @@ class DNAproc:
         alignment = mdaAlign.AlignTraj(self.workU, self.workU, 
                                        select="segid " + " ".join(self.segIDs) + " and not (name H* or name [123]H*)",
                                        verbose=True, 
-                                       in_memory=True, 
+                                       in_memory=inMemory, 
                                        weights="mass" )
         alignment.run()
         
