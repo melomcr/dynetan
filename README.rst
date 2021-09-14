@@ -22,7 +22,7 @@ For an introduction to this implementation, a jupyter notebook tutorial has been
 Documentation
 ------------------------
 
-A full documentation can be found at [https://dynamical-network-analysis.readthedocs.io/en/latest/index.html](https://dynamical-network-analysis.readthedocs.io/en/latest/index.html).
+A full documentation can be found at https://dynamical-network-analysis.readthedocs.io/en/latest/index.html
 
 Resources and References
 ------------------------
