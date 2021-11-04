@@ -1005,15 +1005,23 @@ class DNAproc:
                             mat[nodeIndx, trgtIndx] = 0
                             mat[trgtIndx, nodeIndx] = 0
     
-    def calcCor(self, ncores=1):
+    def calcCor(self, ncores=1, forceCalc=False, verbose=0):
         '''Main interface for correlation calculation.
         
-        Calculates generalized correlaion coefficients either in serial or in parallel implementations using Python's multiprocessing package. This function wraps the creation of temporary variables in allocates the necessary NumPy arrays for accelerated performance of MDAnalysis algorithms.
+        Calculates generalized correlaion coefficients either in serial 
+        or in parallel implementations using Python's multiprocessing 
+        package. This function wraps the creation of temporary variables
+        in allocates the necessary NumPy arrays for accelerated 
+        performance of MDAnalysis algorithms.
         
-        .. note:: See also :py:func:`~dynetan.gencor.prepMIc`, :py:func:`~dynetan.gencor.calcMIRnumba2var`, and :py:func:`~dynetan.gencor.calcCorProc`.
+        .. note:: See also :py:func:`~dynetan.gencor.prepMIc`.
+        .. note:: See also :py:func:`~dynetan.gencor.calcMIRnumba2var`.
+        .. note:: See also :py:func:`~dynetan.gencor.calcCorProc`.
         
         Args:
-            ncores (int) : Defines how many cores will be used for calculation of generalized correlaion coefficients. Set to `1` in order to use the serial implementation.
+            ncores (int) : Defines how many cores will be used for 
+            calculation of generalized correlaion coefficients. Set to 
+            `1` in order to use the serial implementation.
         
         '''
         
@@ -1029,8 +1037,23 @@ class DNAproc:
         winLen = int(np.floor(self.workU.trajectory.n_frames/self.numWinds))
         print("Using window length of {} simulation steps.".format(winLen))
 
-        # Allocate the space for all correlations matrices (for all windows).
-        self.corrMatAll = np.zeros([self.numWinds, self.numNodes, self.numNodes], dtype=np.float64)
+        ### Allocate the space for all correlations matrices (for all windows).
+        newMatrix = False
+        
+        # Check if the correlation matrix already exhists (if this function is 
+        #   being executed again ono the same system, with updated contacts), or
+        #   if all correlations should be recalculated from scratch (in case the 
+        #   trajectory was modified in some way).
+        try:
+            if (self.corrMatAll is None):
+                newMatrix = True
+        except:
+            if forceCalc:
+                newMatrix = True
+                
+        if newMatrix:
+            # Initilize the correlation matrix with zeros
+            self.corrMatAll = np.zeros([self.numWinds, self.numNodes, self.numNodes], dtype=np.float64)
         
         # Stores all data in a dimension-by-frame format.
         traj = np.ndarray( [self.numNodes, numDims, winLen], dtype=np.float64 )
@@ -1056,11 +1079,20 @@ class DNAproc:
             
             print("- > Using single-core implementation.")
             
-            for winIndx in tk.log_progress(range(self.numWinds),every=1, size=self.numWinds, name="Window"):
+            for winIndx in tk.log_progress(range(self.numWinds),every=1, 
+											size=self.numWinds, 
+											name="Window"):
                 beg = int(winIndx*winLen)
                 end = int((winIndx+1)*winLen)
                 
-                pairList = np.asarray(np.where(np.triu(self.contactMatAll[winIndx, :, :]) > 0)).T
+                corMask = self.contactMatAll[winIndx, :, :]
+                corMask[ np.where(self.corrMatAll[winIndx, :, :] > 0) ] = 0
+                
+                pairList = np.asarray(np.where(np.triu(corMask[ :, :]) > 0)).T
+                
+                if pairList.shape[0] == 0:
+                    print("No new correlations need to be calculated.")
+                    break
                 
                 # Resets the trajectory NP array for the current window.
                 traj.fill(0)
@@ -1105,6 +1137,14 @@ class DNAproc:
                             pairList.append( [contI, contJ] )
                         contI += 1
                         contJ += 1
+                
+                # Removes pairs of nodes that already have a result
+                precalcPairList = np.asarray(np.where(np.triu(self.corrMatAll[winIndx, :, :]) > 0)).T.tolist()
+                if len(precalcPairList) > 0:
+                    if verbose:
+                        print("Removing {} pairs with pre-calculated correlations.".format(len(precalcPairList)))
+                    
+                    pairList = [ pair for pair in pairList if pair not in precalcPairList]
                 
                 pairList = np.asarray(pairList)
                 
@@ -1158,6 +1198,8 @@ class DNAproc:
             backend (str) : Defines which MDAnalysis backend will be used for calculation of cartesian distances. Options are `serial` or `openmp`. This option is ignored if the ditance mode is not "all".
         
         '''
+        
+        print("Calculating cartesian distances...\n")
         
         ## numFramesDists is used in the calculation of statistics!
         numFramesDists = self.numSampledFrames*self.numWinds
