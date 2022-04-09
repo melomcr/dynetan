@@ -4,7 +4,7 @@ Citing
 
 To cite this package please use the following publication:
 
-* Generalized correlation-based dynamical network analysis: a new high-performance approach for identifying allosteric communications in molecular dynamics trajectories. In revision (2020).
+* Generalized correlation-based dynamical network analysis: a new high-performance approach for identifying allosteric communications in molecular dynamics trajectories. JCP (2020). DOI: `10.1063/5.0018980 <https://doi.org/10.1063/5.0018980>`_
 
 For further discussion and scientific background, please refer to:
 
