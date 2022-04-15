@@ -327,3 +327,105 @@ def getCartDist(src,trgt, numNodes, nodeDists, distype=0):
     
     return nodeDists[distype, k]
     
+def formatNodeGroups(atmGrp, nodeAtmStrL=["CA"], grpAtmStrL=None):
+    '''Format code to facilitate the definition of node groups.
+
+    This convenience function helps with the definition of node groups.
+    It will produce formated python code that the user can copy directly
+    into a definition of atom groups.
+
+    If the entire residue is to be represented by a single node, then `grpAtmStrL`
+    does not need to be defined. However, if more than one node is defined in `nodeAtmStrL`,
+    then the same number of lists need to be added to `grpAtmStrL` to define each node group.
+
+    Args:
+        atmGrp (MDanalysis atom group object): The atom group object containing one residue.
+        nodeAtmStrL (list): A list of strings defining atoms that will represent nodes in network analysis.
+        grpAtmStrL (list): A list of lists containing atoms that belong to each node group.
+
+    Returns:
+        ---
+
+    '''
+
+    if not (isinstance(nodeAtmStrL,list)):
+        print("ERROR: Expected a list argument for nodeAtmStr, but received: {}.".format(type(nodeAtmStrL).__name__))
+        return
+
+    # We use this to check if the input is making sense, and to get the residue name.
+    if len(atmGrp.residues) != 1:
+        print("ERROR: Expected 1 residue in atom group, but received {}.".format(len(atmGrp.residues)))
+        return
+
+    atmNames = list(atmGrp.names)
+    resName  = atmGrp.resnames[0]
+
+    if not (set(nodeAtmStrL).issubset(set(atmNames))):
+        errorSet = set(nodeAtmStrL) - set(atmNames)
+        print("ERROR: The following node atoms are present in the residue: {}".format(errorSet))
+        return
+
+    print("""
+        You can copy and paste the following lines into your notebook to define
+        the node group(s) for your new residue.
+        """)
+
+    print("usrNodeGroups[\"{}\"] = {{}}".format(resName) )
+
+    if len(nodeAtmStrL) == 1:
+        print("usrNodeGroups[\"{}\"][\"{}\"] = {}".format(
+            resName, nodeAtmStrL[0], set(list(atmGrp.names))) )
+
+    else:
+
+        if not grpAtmStrL:
+            print("ERROR: The argument `grpAtmStrL` is not defined.")
+            return
+
+        if len(grpAtmStrL) != len(nodeAtmStrL):
+            print("ERROR: Expected {} lists of atoms in `grpAtmStrL`, but received {}.".format(len(nodeAtmStrL), len(grpAtmStrL)))
+            return
+
+        for nodeAtmStr, grpAtmStr in zip(nodeAtmStrL,grpAtmStrL):
+            print("usrNodeGroups[\"{}\"][\"{}\"] = {}".format(
+                resName, nodeAtmStr, set(grpAtmStr) ) )
+
+def showNodeGrps(w, atmGrp, usrNodeGroups, nodeAtmSel=""):
+    '''Labels atoms in an NGLview instance to visualize node groups.
+
+    This convenience function helps with the definition of node groups.
+    It will label atoms and nodes in a structure to help visualize the selection
+    of atoms and nodes.
+
+    Args:
+        w (nglview object): The initialized NGLview object.
+        atmGrp (MDanalysis atom group object): The atom group object containing one residue.
+        usrNodeGroups (dict): A dictionary of dictionaries with node groups for a given residue.
+        nodeAtmSel (str): A string selecting a node atom so that only atoms in that group are labeled.
+
+    Returns:
+        ---
+
+    '''
+
+    selectedAtoms = set()
+    for resName,nodeGrp in usrNodeGroups.items():
+        for nodeAtm,grpAtms in nodeGrp.items():
+            if (nodeAtmSel!="") and (nodeAtmSel!=nodeAtm):
+                continue
+            selTxt = ["." + atmStr for atmStr in grpAtms if atmStr != nodeAtm ]
+            selTxt = " ".join(selTxt)
+
+            w.add_representation(repr_type="label", selection=selTxt, labelType="atomname", color="black")
+            w.add_representation(repr_type="label", selection="."+nodeAtm, labelType="atomname", color="green")
+
+            selectedAtoms.update(set(grpAtms))
+
+    # Create a set of atoms not selected by any node group.
+    unSelectedAtoms = set(atmGrp.names) - selectedAtoms
+
+    if len(unSelectedAtoms) and (nodeAtmSel==""):
+        selTxt = ["." + atmStr for atmStr in unSelectedAtoms ]
+        selTxt = " ".join(selTxt)
+
+        w.add_representation(repr_type="label", selection=selTxt, labelType="atomname", color="red")
