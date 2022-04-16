@@ -188,8 +188,8 @@ class DNAproc:
             customResNodes (dictionary) : Dictionary mapping residue names with lists of atom names that will represent network nodes.
         
         '''
-        
-        self.customResNodes = customResNodes
+        print("### The method `setCustomResNodes` is now deprecated.")
+        #self.customResNodes = customResNodes
     
     def setUsrNodeGroups(self, usrNodeGroups):
         '''Set atoms that will represent node groups in user-defined residues.
@@ -500,9 +500,18 @@ class DNAproc:
 
         self.resNodeGroups.update(self.usrNodeGroups)
 
+        # Creates node groups for protein atoms.
+        for res in self.workU.select_atoms("protein").residues:
+            if res.resname not in self.resNodeGroups.keys():
+                # Creates the group of atoms in the group represented by this node.
+                self.resNodeGroups[res.resname] = {}
+                self.resNodeGroups[res.resname]["CA"] = set(res.atoms.names)
+            else:
+                self.resNodeGroups[res.resname]["CA"].update(set(res.atoms.names))
+
         for res in self.workU.select_atoms("not protein").residues:
             # Verifies if there are unkown residues
-            if len(res.atoms) > 1 and res.resname not in self.customResNodes.keys():
+            if len(res.atoms) > 1 and res.resname not in self.resNodeGroups.keys():
                 print((Fore.RED + "Unknown residue type" + Fore.RESET + " {0}, from segment {1}").format(
                     res.resname, res.segid))
             
@@ -511,9 +520,6 @@ class DNAproc:
             if len(res.atoms) == 1:
                 self.resNodeGroups[res.resname] = {}
                 self.resNodeGroups[res.resname][res.atoms.names[0]] = set(res.atoms.names)
-
-                if res.resname not in self.customResNodes.keys():
-                    self.customResNodes[res.resname] = [res.atoms[0].name]
             else:
                 # If the residue is not an ION, check for Hydrogen atoms.
                 
@@ -536,23 +542,11 @@ class DNAproc:
                     res.resname, res.segid, res.resid, ' '.join(kMissing))
                 print(warningStr)
                 
-        resNodeAtoms = self.customResNodes.copy()
-
-        # Creates node groups for protein atoms.
-        for res in self.workU.select_atoms("protein").residues:
-            if res.resname not in resNodeAtoms.keys():
-                resNodeAtoms[res.resname] = ["CA"]
-                # Creates the group of atoms in the group represented by this node.
-                self.resNodeGroups[res.resname] = {}
-                self.resNodeGroups[res.resname]["CA"] = set(res.atoms.names)
-            else:
-                self.resNodeGroups[res.resname]["CA"].update(set(res.atoms.names))
-
         ## Create atom selection for atoms that represent nodes
 
         # Builds list of selection statements
-        selStr = ["(protein and name CA)"]
-        selStr += [ "(resname {0} and name {1})".format(k," ".join(v)) for k,v in self.customResNodes.items() ]
+        selStr = [ "(resname {0} and name {1})".format(k," ".join(v.keys())) for k,v in self.resNodeGroups.items() ]
+
         # Combines all statements into one selection string
         selStr = " or ".join(selStr)
         
@@ -566,7 +560,6 @@ class DNAproc:
         
         print("Preparing nodes...")
         
-        #self.atomToNode = np.full(shape=initialSel.n_atoms, fill_value=-1, dtype=int)
         self.atomToNode = np.full(shape=len(self.workU.atoms), fill_value=-1, dtype=int)
         
         # Creates an array relating atoms to nodes.
