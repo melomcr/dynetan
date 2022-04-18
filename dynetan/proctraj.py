@@ -63,7 +63,7 @@ class DNAproc:
     
     '''
     
-    def __init__(self):
+    def __init__(self, notebookMode=True):
         '''Constructor
         
         Sets initial values for class variables.
@@ -119,6 +119,18 @@ class DNAproc:
         
         self.distanceMode           = ct.MODE_ALL
         
+        self.notebookMode           = notebookMode
+
+        if self.notebookMode:
+            from tqdm.notebook import tqdm
+            self.asciiMode = False
+
+        else:
+            from tqdm import tqdm
+            self.asciiMode = True
+
+        self.progBar = tqdm
+
     def setNumWinds(self, numWinds):
         '''Set number of windows.
         
@@ -282,11 +294,11 @@ class DNAproc:
         
         dcdVizFile = fileNameRoot + "_reducedTraj.dcd"
         
+        totalFrames = int(len(self.workU.trajectory[::stride]))
+
         with mda.Writer(dcdVizFile, self.workU.atoms.n_atoms) as W:
-            for ts in tk.log_progress(self.workU.trajectory[::stride], 
-                                      every=1, 
-                                      size=int(len(self.workU.trajectory[::stride])),
-                                name="Frames"):
+            for ts in self.progBar(self.workU.trajectory[::stride], desc="Frames",
+                                      total=totalFrames, ascii=self.asciiMode):
                 W.write(self.workU.atoms)
         
         pdbVizFile = fileNameRoot + "_reducedTraj.pdb"
@@ -419,7 +431,8 @@ class DNAproc:
                 #  sampled timesteps
 
                 resIndexDict = defaultdict(int)
-                for ts in tk.log_progress(self.workU.trajectory[:numAutoFrames*stride:stride], name="Frames",size=numAutoFrames):
+                for ts in self.progBar(self.workU.trajectory[:numAutoFrames*stride:stride],
+                               desc="Frames", total=numAutoFrames, ascii=self.asciiMode):
                     
                     # Creates neighbor search object. We pass the atoms we want to check,
                     #   and then search using the main selection.
@@ -563,7 +576,7 @@ class DNAproc:
         self.atomToNode = np.full(shape=len(self.workU.atoms), fill_value=-1, dtype=int)
         
         # Creates an array relating atoms to nodes.
-        for indx, node in enumerate(tk.log_progress(self.nodesAtmSel.atoms, name="Nodes")):
+        for indx, node in enumerate(self.progBar(self.nodesAtmSel.atoms, desc="Nodes", ascii=self.asciiMode)):
             
             # Loops over all atoms in the residue related to the node
             for atm in node.residue.atoms:
@@ -704,7 +717,7 @@ class DNAproc:
         # Set number of frames that defines a contact
         contactCutoff = (winLen/stride)*self.contactPersistence
 
-        for winIndx in tk.log_progress(range(self.numWinds),every=1, size=self.numWinds, name="Window"):
+        for winIndx in self.progBar(range(self.numWinds), total=self.numWinds, desc="Window", ascii=self.asciiMode):
             beg = winIndx*winLen
             end = (winIndx+1)*winLen
             
@@ -787,16 +800,12 @@ class DNAproc:
         
         '''
         
-        recycleBar = []
-        
-        for winIndx in tk.log_progress(range(self.numWinds), every=1, size=self.numWinds, name="Window"):
-            
-            self._filterContactsWindow(self.contactMatAll[winIndx, :, :], 
-                                       nodeProgress=recycleBar,
+        for winIndx in self.progBar(range(self.numWinds), total=self.numWinds, desc="Window", ascii=self.asciiMode):
+
+            self._filterContactsWindow(self.contactMatAll[winIndx, :, :],
                                        notSameRes=notSameRes, 
                                        notConsecutiveRes=notConsecutiveRes)
     
-            #for winIndx in range(self.numWinds):
             print("Window:", winIndx)
             pairs = np.asarray(np.where(np.triu(self.contactMatAll[winIndx, :, :]) > 0)).T
             totalPairs = int(self.contactMat.shape[0]*(self.contactMat.shape[0]-1)/2)
@@ -865,6 +874,8 @@ class DNAproc:
             # selStr = "(segid " + " ".join(segIDs) + ") or "
             selStr = " or ".join(["(segid {0} and resid {1})".format(res.segid, res.resid) for res in contactNodesSel.residues])
             
+            #print(selStr)
+
             allSel = self.workU.select_atoms( selStr )
             
             # Merging a selection from the universe returns a new (and smaller) universe
@@ -897,7 +908,7 @@ class DNAproc:
             
             print("Updating atom-to-node mapping...")
             
-            for indx, node in enumerate(tk.log_progress(self.nodesAtmSel.atoms, name="Node")):
+            for indx, node in enumerate(self.progBar(self.nodesAtmSel.atoms, desc="Node", ascii=self.asciiMode)):
                 
                 # Loops over all atoms in the residue related to the node
                 for atm in node.residue.atoms:
@@ -919,7 +930,7 @@ class DNAproc:
             #########################
             
     
-    def _filterContactsWindow(self, mat, nodeProgress = [], notSameRes=True, notConsecutiveRes=False):
+    def _filterContactsWindow(self, mat, notSameRes=True, notConsecutiveRes=False):
         """
         Filter contacts in a contact matrix.
         
@@ -930,7 +941,7 @@ class DNAproc:
         """
         
         # Cycles over all nodes in the system. There may be several nodes per residue.
-        for node in tk.log_progress(self.nodesAtmSel.atoms, name="Node", userProgress=nodeProgress):
+        for node in self.progBar(self.nodesAtmSel.atoms, desc="Node", leave=(not self.asciiMode), ascii=self.asciiMode):
 
             # Get current node index
             nodeIndx = self.atomToNode[node.ix]
@@ -1066,15 +1077,14 @@ class DNAproc:
         for tmpindx in range(1, self.kNeighb+1):
             phi[tmpindx] = psi[tmpindx] - 1/tmpindx
         
-        recycleBar = []
-        
         if ncores == 1:
             
             print("- > Using single-core implementation.")
             
-            for winIndx in tk.log_progress(range(self.numWinds),every=1, 
-											size=self.numWinds, 
-											name="Window"):
+            for winIndx in self.progBar(range(self.numWinds),
+											total=self.numWinds,
+											desc="Window", ascii=self.asciiMode):
+
                 beg = int(winIndx*winLen)
                 end = int((winIndx+1)*winLen)
                 
@@ -1094,7 +1104,7 @@ class DNAproc:
                 gc.prepMIc(self.workU, traj, beg, end, self.numNodes, numDims)
                 
                 # Iterates over all pairs of nodes that are in contact.
-                for atmList in tk.log_progress(pairList, name="Contact Pair", userProgress=recycleBar ):
+                for atmList in self.progBar(pairList, desc="Contact Pair", leave=False, ascii=self.asciiMode ):
                     
                     # Calls the Numba-compiled function.
                     corr = gc.calcMIRnumba2var(traj[atmList, :, :], winLen, numDims, self.kNeighb, psi, phi)
@@ -1113,7 +1123,9 @@ class DNAproc:
             
             print("- > Using multi-core implementation with {} threads.".format(ncores))
             
-            for winIndx in tk.log_progress(range(self.numWinds),every=1, size=self.numWinds, name="Window"):
+            for winIndx in self.progBar(range(self.numWinds),
+											total=self.numWinds,
+											desc="Window", ascii=self.asciiMode):
                 beg = int(winIndx*winLen)
                 end = int((winIndx+1)*winLen)
                 
@@ -1162,7 +1174,7 @@ class DNAproc:
                     procs.append(proc)
                 
                 # Gathers all resuls.
-                for _ in tk.log_progress(range(len(pairList)), name="Contact Pair", userProgress=recycleBar ):
+                for _ in self.progBar(range(len(pairList)), desc="Contact Pair", leave=False, ascii=self.asciiMode ):
                     
                     ## Waits until the next result is available, then puts it in the matrix.
                     result = results_queue.get()
@@ -1213,8 +1225,8 @@ class DNAproc:
         maxFrame = numFramesDists*steps
 
         # Mean distance
-        for indx, ts in enumerate(tk.log_progress(self.workU.trajectory[0:maxFrame:steps], 
-                                            size=numFramesDists, name="MEAN: Timesteps")):
+        for indx, ts in enumerate(self.progBar(self.workU.trajectory[0:maxFrame:steps],
+											total=numFramesDists, desc="MEAN: Timesteps", ascii=self.asciiMode)):
             
             ct.calcDistances(selectionAtms, self.numNodes, selectionAtms.n_atoms, self.atomToNode, 
                             self.cutoffDist, self.nodeGroupIndicesNP, self.nodeGroupIndicesNPAux, nodeDistsTmp, 
@@ -1230,10 +1242,9 @@ class DNAproc:
         self.nodeDists[3, :] = self.nodeDists[0, :]
 
         ## Standard Error of the Mean
-        for indx, ts in enumerate(tk.log_progress(self.workU.trajectory[0:maxFrame:steps],
-                                            size=numFramesDists, name="SEM/MIN/MAX: Timesteps")):
-            
-            #mdadist.self_distance_array(self.nodesAtmSel.positions, result=nodeDistsTmp, backend=backend)
+        for indx, ts in enumerate(self.progBar(self.workU.trajectory[0:maxFrame:steps],
+											total=numFramesDists, desc="SEM/MIN/MAX: Timesteps", ascii=self.asciiMode)):
+
             ct.calcDistances(selectionAtms, self.numNodes, selectionAtms.n_atoms, self.atomToNode, 
                             self.cutoffDist, self.nodeGroupIndicesNP, self.nodeGroupIndicesNPAux, nodeDistsTmp, 
                             backend, distMode=self.distanceMode, verbose=verbose)
@@ -1327,7 +1338,8 @@ class DNAproc:
         if ncores == 1:
             ## Serial Version
             
-            for win in tk.log_progress(range(self.numWinds), name="Window"):
+            for win in self.progBar(range(self.numWinds), total=self.numWinds,
+                                    desc="Window", ascii=self.asciiMode):
                 
                 ### IMPORTANT!
                 # For the FW optimal path determination, we use the "distance" as weight, 
@@ -1355,7 +1367,8 @@ class DNAproc:
                 procs.append( mp.Process(target=nw.calcOptPathPar, args=(self.nxGraphs, inQueue, outQueue)) )
                 procs[-1].start()
                 
-            for win in tk.log_progress(range(self.numWinds), name="Window"):
+            for win in self.progBar(range(self.numWinds), total=self.numWinds,
+                                    desc="Window", ascii=self.asciiMode):
                 
                 ## Waits until the next result is available, then stores it in the object.
                 result = outQueue.get()
@@ -1415,7 +1428,8 @@ class DNAproc:
         if ncores == 1:
             ## Serial Version
             # Single core version
-            for win in tk.log_progress(range(self.numWinds), every=1, size=self.numWinds, name="Window"):
+            for win in self.progBar(range(self.numWinds), total=self.numWinds,
+                                    desc="Window", ascii=self.asciiMode):
                 # Calc all betweeness in entire system.
                 ### IMPORTANT!
                 # For the betweeness, we only care about the number of shortests paths 
@@ -1439,7 +1453,8 @@ class DNAproc:
                 procs.append( mp.Process(target=nw.calcBetweenPar, args=(self.nxGraphs, inQueue, outQueue)) )
                 procs[-1].start()
                 
-            for win in tk.log_progress(range(self.numWinds), name="Window"):
+            for win in self.progBar(range(self.numWinds), total=self.numWinds,
+                                    desc="Window", ascii=self.asciiMode):
                 
                 ## Waits until the next result is available, then stores it in the object.
                 result = outQueue.get()
@@ -1547,9 +1562,9 @@ class DNAproc:
 
         # Find selection of atoms that are within "betweenDist" from both selections.
         # Get selection of nodes represented by the atoms by sampling several frames.
-        for ts in tk.log_progress(self.workU.trajectory[:samples*stride:stride], every=1, 
-                            name="Samples",size=samples):
-            
+        for ts in self.progBar(self.workU.trajectory[:samples*stride:stride],
+                            desc="Samples",total=samples, ascii=self.asciiMode):
+
             contactSel = mdaB(self.workU.select_atoms("all"), selPtn, selNcl, betweenDist )    
             contactNodes.update(np.unique( self.atomToNode[ contactSel.atoms.ix_array ] ))
         
