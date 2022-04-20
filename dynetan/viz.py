@@ -30,7 +30,7 @@ def getCommunityColors():
     # We return a Pandas data frame with a VMD-compatible color scale for node communities.
     return pd.read_csv(colorsFileStream)
 
-def prepTclViz(baseName, numWinds, ligandSegid, trgDir):
+def prepTclViz(baseName, numWinds, ligandSegid="NULL", trgDir="./"):
     '''Prepares system-specific TCL script vor visualization.
     
     This function prepares a TCL script that can be loaded by `VMD <http://www.ks.uiuc.edu/Research/vmd/>`_ to create high-resolution renderings of the system.

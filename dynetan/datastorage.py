@@ -91,7 +91,8 @@ class DNAdata:
 
             f_numNodes = f.create_dataset("numNodes", dtype='i', data= self.numNodes)
 
-            f_nodeDists = f.create_dataset("nodeDists", 
+            if self.nodeDists is not None:
+                f_nodeDists = f.create_dataset("nodeDists",
                                             shape= self.nodeDists.shape, 
                                             dtype= self.nodeDists.dtype,
                                             data= self.nodeDists)
@@ -110,12 +111,14 @@ class DNAdata:
             
             f_maxDirectDist = f.create_dataset("maxDirectDist", dtype='f8', data= self.maxDirectDist ) 
 
-            f_interNodePairs = f.create_dataset("interNodePairs", 
+
+            if self.interNodePairs is not None:
+                f_interNodePairs = f.create_dataset("interNodePairs",
                                             shape= self.interNodePairs.shape, 
                                             dtype= self.interNodePairs.dtype,
                                             data= self.interNodePairs)
-
-            f_contactNodesInter = f.create_dataset("contactNodesInter", 
+            if self.contactNodesInter is not None:
+                f_contactNodesInter = f.create_dataset("contactNodesInter",
                                             shape= self.contactNodesInter.shape, 
                                             dtype= self.contactNodesInter.dtype,
                                             data= self.contactNodesInter)

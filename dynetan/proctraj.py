@@ -266,8 +266,11 @@ class DNAproc:
         self.dnaData.contactMat     = self.contactMat
         
         self.dnaData.corrMatAll     = self.corrMatAll
-        self.dnaData.nodeDists      = self.nodeDists
-        
+
+        # Cartesian distances between nodes.
+        if self.nodeDists is not None:
+            self.dnaData.nodeDists      = self.nodeDists
+
         self.dnaData.distsAll       = self.distsAll
         self.dnaData.preds          = self.preds
         self.dnaData.maxDist        = self.maxDist
@@ -276,8 +279,11 @@ class DNAproc:
         self.dnaData.nodesComm      = self.nodesComm
         self.dnaData.nxGraphs       = self.nxGraphs
         
-        self.dnaData.interNodePairs    = self.interNodePairs
-        self.dnaData.contactNodesInter = self.contactNodesInter
+        if self.interNodePairs is not None:
+            self.dnaData.interNodePairs    = self.interNodePairs
+
+        if self.contactNodesInter is not None:
+            self.dnaData.contactNodesInter = self.contactNodesInter
         
         self.dnaData.saveToFile(fileNameRoot)
         
