@@ -565,8 +565,7 @@ class DNAproc:
         self.numNodes = self.nodesAtmSel.n_atoms
         
         print("Preparing nodes...")
-        
-        #self.atomToNode = np.full(shape=initialSel.n_atoms, fill_value=-1, dtype=int)
+
         self.atomToNode = np.full(shape=len(self.workU.atoms), fill_value=-1, dtype=int)
         
         # Creates an array relating atoms to nodes.
@@ -649,7 +648,7 @@ class DNAproc:
         alignment.run()
         
 
-    def _contactTraj(self, contactMat, beg = 0, end = -1, stride = 1):
+    def _contactTraj(self, contactMat, beg = 0, end = -1, stride = 1, verbose=False):
         '''Wrapper for contact calculation per trajectory window.
         
         Pre allocates the necessary temporary NumPy arrays to speed up calculations.
@@ -661,6 +660,12 @@ class DNAproc:
         
         nAtoms = selectionAtms.n_atoms
         
+        if verbose:
+            print("Using diatance calculation mode: {}".format(self.distanceMode), flush=True)
+            size = int(nAtoms*(nAtoms-1)/2) * np.array(0,dtype=float).itemsize
+            print("Allocating temporary distance array of approximate size {} MB.".format(size//1024//1024), flush=True)
+            print("Starting allocation now!", flush=True)
+
         # Array to receive all-to-all distances, at every step
         if self.distanceMode == ct.MODE_ALL:
             # This array will store all distances between all atoms.
@@ -671,14 +676,23 @@ class DNAproc:
             #   large value.
             tmpDists =  np.full(  int(nAtoms*(nAtoms-1)/2), self.cutoffDist*2, dtype=float )
         
+        if verbose:
+            print("Allocated temporary distance array of size {} MB.".format(tmpDists.nbytes//1024//1024), flush=True)
+
         # Array to get minimum distances per node
         tmpDistsAtms = np.full( nAtoms, self.cutoffDist*2, dtype=float )
         
+        if verbose:
+            print("Allocated temporary NODE distance array of size {} KB.".format(tmpDistsAtms.nbytes//1024), flush=True)
+
         if end < 0:
             end = self.workU.trajectory.n_frames
         
         for ts in self.workU.trajectory[beg:end:stride]:
             
+            if verbose:
+                print("Calculating contacts for timestep {}.".format(ts), flush=True)
+
             # Calculates distances to determine contact matrix
             ct.getContactsC(selectionAtms, self.numNodes, nAtoms, self.cutoffDist, tmpDists, tmpDistsAtms, 
                         contactMat, self.atomToNode, 
@@ -717,14 +731,14 @@ class DNAproc:
             
             ## RUNs calculation
             if verbose:
-                print("Starting contact calculation...")
+                print("Starting contact calculation...", flush=True)
                 start = timer()
                 
-            self._contactTraj( self.contactMatAll[winIndx, :, :], beg, end, stride)
+            self._contactTraj( self.contactMatAll[winIndx, :, :], beg, end, stride, verbose)
             
             if verbose:
                 end = timer()
-                print("Time for contact calculation:", timedelta(seconds=end-start))
+                print("Time for contact calculation: {}".format(timedelta(seconds=end-start)), flush=True)
             
             self.contactMatAll[winIndx, :, :] = np.where(self.contactMatAll[winIndx, :, :] > contactCutoff, 1, 0)
 
@@ -869,14 +883,40 @@ class DNAproc:
             
             print("\nUpdating Universe to reflect new node selection...")
             
-            # selStr = "(segid " + " ".join(segIDs) + ") or "
-            selStr = " or ".join(["(segid {0} and resid {1})".format(res.segid, res.resid) for res in contactNodesSel.residues])
-            
-            allSel = self.workU.select_atoms( selStr )
-            
+            # Here we use the new node selection to find *all atoms* from residues that
+            # contain selected nodes, not just the atoms that represent nodes (stored
+            # in the `contactNodesSel` variable.
+
+            # Instead of using a long selection strig programatically created for all
+            # nodes, the following loop gathers all selected residues from all segments
+            # that have at least one selected residue. Then, it creates a list with
+            # one string per segment. This reduces the load on the recursion-based
+            # atom selection language in MDanalysis.
+            print("Using segid-based selection implementation.")
+
+            from collections import defaultdict
+            selDict = defaultdict(list)
+            for res in contactNodesSel.residues:
+                selDict[res.segid].append(str(res.resid))
+
+            selStrL = []
+            for segid,residL in selDict.items():
+                selStrL.append("segid {} and resid {}".format(segid, " ".join(residL)))
+
+            if verbose:
+                print("Creating a smaller atom selection without isolated nodes.")
+
+            allSel = self.workU.select_atoms( *selStrL )
+
+            if verbose:
+                print("Creating a smaller universe without isolated nodes.")
+
             # Merging a selection from the universe returns a new (and smaller) universe
             self.workU = mda.core.universe.Merge(allSel)
             
+            if verbose:
+                print("Capture coordinates from selected nodes in previous universe.")
+
             # We now create a new universe with coordinates from the selected residues
             resObj = mdaAFF(lambda ag: ag.positions.copy(), allSel).run().results
             
@@ -887,14 +927,30 @@ class DNAproc:
             if not isinstance(resObj, np.ndarray):
                 resObj = resObj['timeseries']
             
+            if verbose:
+                print("Load coordinates from selected nodes in new universe.")
+
             self.workU.load_new(resObj ,format=mdaMemRead)
-        
+
+            if verbose:
+                print("Recriate node-atom selection.")
+
             # Regenerate selection of atoms that represent nodes.
             # We use the atom selection structure from the previous universe (that still had nodes with
             #   no contacts) to create selection strings and apply them to the new, smaller universe.
             #   This guarantees we have the correct index for all atoms that represent nodes in the new universe.
-            selStr = " or ".join([ "(" + tk.getSelFromNode(indx, contactNodesSel, atom=True) + ")" for indx in range(contactNodesSel.n_atoms)])
+            #selStr = " or ".join([ "(" + tk.getSelFromNode(indx, contactNodesSel, atom=True) + ")" for indx in range(contactNodesSel.n_atoms)])
             
+            # Builds list of selection statements
+            selStr = ["(protein and name CA)"]
+            selStr += [ "(resname {0} and name {1})".format(k," ".join(v)) for k,v in self.customResNodes.items() ]
+            # Combines all statements into one selection string
+            selStr = " or ".join(selStr)
+
+            if verbose:
+                print("Selection string for atoms that represent network nodes:")
+                print(selStr)
+
             self.nodesAtmSel = self.workU.select_atoms(selStr)
 
             self.numNodes = self.nodesAtmSel.n_atoms
