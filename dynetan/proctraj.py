@@ -946,8 +946,8 @@ class DNAproc:
             # Regenerate selection of atoms that represent nodes.
             
             # Builds list of selection statements
-            selStr = ["(protein and name CA)"]
-            selStr += [ "(resname {0} and name {1})".format(k," ".join(v)) for k,v in self.customResNodes.items() ]
+            selStr = [ "(resname {0} and name {1})".format(k," ".join(v.keys())) for k,v in self.resNodeGroups.items() ]
+
             # Combines all statements into one selection string
             selStr = " or ".join(selStr)
 
