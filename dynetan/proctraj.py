@@ -578,7 +578,7 @@ class DNAproc:
         self.numNodes = self.nodesAtmSel.n_atoms
         
         print("Preparing nodes...")
-        
+
         self.atomToNode = np.full(shape=len(self.workU.atoms), fill_value=-1, dtype=int)
         
         # Creates an array relating atoms to nodes.
@@ -661,7 +661,7 @@ class DNAproc:
         alignment.run()
         
 
-    def _contactTraj(self, contactMat, beg = 0, end = -1, stride = 1):
+    def _contactTraj(self, contactMat, beg = 0, end = -1, stride = 1, verbose=False):
         '''Wrapper for contact calculation per trajectory window.
         
         Pre allocates the necessary temporary NumPy arrays to speed up calculations.
@@ -673,6 +673,12 @@ class DNAproc:
         
         nAtoms = selectionAtms.n_atoms
         
+        if verbose:
+            print("Using diatance calculation mode: {}".format(self.distanceMode), flush=True)
+            size = int(nAtoms*(nAtoms-1)/2) * np.array(0,dtype=float).itemsize
+            print("Allocating temporary distance array of approximate size {} MB.".format(size//1024//1024), flush=True)
+            print("Starting allocation now!", flush=True)
+
         # Array to receive all-to-all distances, at every step
         if self.distanceMode == ct.MODE_ALL:
             # This array will store all distances between all atoms.
@@ -683,14 +689,23 @@ class DNAproc:
             #   large value.
             tmpDists =  np.full(  int(nAtoms*(nAtoms-1)/2), self.cutoffDist*2, dtype=float )
         
+        if verbose:
+            print("Allocated temporary distance array of size {} MB.".format(tmpDists.nbytes//1024//1024), flush=True)
+
         # Array to get minimum distances per node
         tmpDistsAtms = np.full( nAtoms, self.cutoffDist*2, dtype=float )
         
+        if verbose:
+            print("Allocated temporary NODE distance array of size {} KB.".format(tmpDistsAtms.nbytes//1024), flush=True)
+
         if end < 0:
             end = self.workU.trajectory.n_frames
         
         for ts in self.workU.trajectory[beg:end:stride]:
             
+            if verbose:
+                print("Calculating contacts for timestep {}.".format(ts), flush=True)
+
             # Calculates distances to determine contact matrix
             ct.getContactsC(selectionAtms, self.numNodes, nAtoms, self.cutoffDist, tmpDists, tmpDistsAtms, 
                         contactMat, self.atomToNode, 
@@ -729,14 +744,14 @@ class DNAproc:
             
             ## RUNs calculation
             if verbose:
-                print("Starting contact calculation...")
+                print("Starting contact calculation...", flush=True)
                 start = timer()
                 
-            self._contactTraj( self.contactMatAll[winIndx, :, :], beg, end, stride)
+            self._contactTraj( self.contactMatAll[winIndx, :, :], beg, end, stride, verbose)
             
             if verbose:
                 end = timer()
-                print("Time for contact calculation:", timedelta(seconds=end-start))
+                print("Time for contact calculation: {}".format(timedelta(seconds=end-start)), flush=True)
             
             self.contactMatAll[winIndx, :, :] = np.where(self.contactMatAll[winIndx, :, :] > contactCutoff, 1, 0)
 
@@ -877,16 +892,39 @@ class DNAproc:
             
             print("\nUpdating Universe to reflect new node selection...")
             
-            # selStr = "(segid " + " ".join(segIDs) + ") or "
-            selStr = " or ".join(["(segid {0} and resid {1})".format(res.segid, res.resid) for res in contactNodesSel.residues])
-            
-            #print(selStr)
+            # Here we use the new node selection to find *all atoms* from residues that
+            # contain selected nodes, not just the atoms that represent nodes (stored
+            # in the `contactNodesSel` variable.
 
-            allSel = self.workU.select_atoms( selStr )
-            
+            # Instead of using a long selection strig programatically created for all
+            # nodes, the following loop gathers all selected residues from all segments
+            # that have at least one selected residue. Then, it creates a list with
+            # one string per segment. This reduces the load on the recursion-based
+            # atom selection language in MDanalysis.
+
+            from collections import defaultdict
+            selDict = defaultdict(list)
+            for res in contactNodesSel.residues:
+                selDict[res.segid].append(str(res.resid))
+
+            selStrL = []
+            for segid,residL in selDict.items():
+                selStrL.append("segid {} and resid {}".format(segid, " ".join(residL)))
+
+            if verbose:
+                print("Creating a smaller atom selection without isolated nodes.")
+
+            allSel = self.workU.select_atoms( *selStrL )
+
+            if verbose:
+                print("Creating a smaller universe without isolated nodes.")
+
             # Merging a selection from the universe returns a new (and smaller) universe
             self.workU = mda.core.universe.Merge(allSel)
             
+            if verbose:
+                print("Capture coordinates from selected nodes in previous universe.")
+
             # We now create a new universe with coordinates from the selected residues
             resObj = mdaAFF(lambda ag: ag.positions.copy(), allSel).run().results
             
@@ -897,14 +935,26 @@ class DNAproc:
             if not isinstance(resObj, np.ndarray):
                 resObj = resObj['timeseries']
             
+            if verbose:
+                print("Load coordinates from selected nodes in new universe.")
+
             self.workU.load_new(resObj ,format=mdaMemRead)
-        
+
+            if verbose:
+                print("Recriate node-atom selection.")
+
             # Regenerate selection of atoms that represent nodes.
-            # We use the atom selection structure from the previous universe (that still had nodes with
-            #   no contacts) to create selection strings and apply them to the new, smaller universe.
-            #   This guarantees we have the correct index for all atoms that represent nodes in the new universe.
-            selStr = " or ".join([ "(" + tk.getSelFromNode(indx, contactNodesSel, atom=True) + ")" for indx in range(contactNodesSel.n_atoms)])
             
+            # Builds list of selection statements
+            selStr = ["(protein and name CA)"]
+            selStr += [ "(resname {0} and name {1})".format(k," ".join(v)) for k,v in self.customResNodes.items() ]
+            # Combines all statements into one selection string
+            selStr = " or ".join(selStr)
+
+            if verbose:
+                print("Selection string for atoms that represent network nodes:")
+                print(selStr)
+
             self.nodesAtmSel = self.workU.select_atoms(selStr)
 
             self.numNodes = self.nodesAtmSel.n_atoms
@@ -1540,27 +1590,30 @@ class DNAproc:
                                             reverse=True) )
             
             self.nodesComm[win]["commOrderEigenCentr"] = copy.deepcopy( communitiesOrdEigen )
-    
-    def interfaceAnalysis(self, selAstr, selBstr, betweenDist = 15, samples = 10):
+
+    def interfaceAnalysis(self, selAstr, selBstr, betweenDist = 15, samples = 10, verbose=0):
         '''Detects interface between molecules.
-        
+
         Based on user-defined atom selections, the function detects residues (and their network nodes) that are close to the interface between both atom selections. That may include amino acids in the interface, as well as ligands, waters and ions.
-        
+
         Only nodes that have edges to nodes on the side of the interface are selected.
-        
+
         Using a sampling of simulation frames assures that transient contacts will be detected by this analysis.
-        
+
         Args:
             selAstr (str) : Atom selection.
             selBstr (str) : Atom selection.
             betweenDist (float) : Cutoff distance for selection of atoms that are within *betweenDist* from both selections.
             samples (int) : Number of frames to be sampled for detection of interface residues.
-        
+
+        Returns:
+            Number of unique nodes in interface node pairs.
+
         '''
-        
+
         # Select the necessary stride so that we get *samples*.
         stride = int(np.floor(len(self.workU.trajectory)/samples))
-        
+
         selPtn = self.workU.select_atoms(selAstr)
         selNcl = self.workU.select_atoms(selBstr)
 
@@ -1571,21 +1624,33 @@ class DNAproc:
         for ts in self.progBar(self.workU.trajectory[:samples*stride:stride],
                             desc="Samples",total=samples, ascii=self.asciiMode):
 
-            contactSel = mdaB(self.workU.select_atoms("all"), selPtn, selNcl, betweenDist )    
+            contactSel = mdaB(self.workU.select_atoms("all"), selPtn, selNcl, betweenDist )
+
+            # This checks the type of the MDAnalysis results. If the selection or between distance
+            # lead to a NULL selection, the function returns 0 ("zero"), otherwise, it returns
+            # an "AtomGroup" instance.
+            if not isinstance(contactSel, mda.AtomGroup):
+                if verbose:
+                    print("Warning: No contacts found in this interface for timestep {}".format(ts.time))
+                continue
+
             contactNodes.update(np.unique( self.atomToNode[ contactSel.atoms.ix_array ] ))
-        
+
+        if len(contactNodes) == 0:
+            print("No contacts found in this interface. Check your selections and sampling.")
+            return(0)
+
         # Makes it into a list for better processing
         contactNodesL = np.asarray(list(contactNodes))
-        
+
         # Sanity check.
         # Verifies possible references from atoms that had no nodes.
         if len(contactNodesL[ contactNodesL < 0 ]):
             print("ERROR! There are {} atoms not represented by nodes! Verify your universe and atom selection.".format(len(contactNodesL[ contactNodesL < 0 ])))
-        
+            return(-1)
+
         # These are all nodes in both selections.
         numContactNodesL = len(contactNodes)
-        
-        #print("{0} nodes found in the interface.".format(numContactNodesL))
 
         # Filter pairs of nodes that have contacts
         contactNodePairs = []
@@ -1599,18 +1664,16 @@ class DNAproc:
         # These are all pairs of nodes that make direct connections. These pairs WILL INCLUDE
         #    pairs where both nodes are on the same side of the interface.
         contactNodePairs = np.asarray( contactNodePairs, dtype=np.int )
-        
-        #print("{0} contacting node pairs found in the interface.".format(len(contactNodePairs)))
 
         def inInterface(nodesAtmSel, i, j):
             segID1 = nodesAtmSel.atoms[i].segid
             segID2 = nodesAtmSel.atoms[j].segid
-            
+
             if (segID1 != segID2) and ((segID1 in self.segIDs) or (segID2 in self.segIDs)):
                 return True
             else:
                 return False
-        
+
         # These are pairs where the nodes are NOT on the same selection, that is, pairs that connect
         #   the two atom selections.
         self.interNodePairs = [ (i,j) for i,j in contactNodePairs if inInterface(self.nodesAtmSel, i, j) ]
@@ -1619,11 +1682,7 @@ class DNAproc:
 
         self.contactNodesInter = np.unique(self.interNodePairs)
         print("{0} unique nodes in interface node pairs.".format(len(self.contactNodesInter)))
-        
-        
-        
-        
-        
-        
+
+        return(len(self.contactNodesInter))
         
         
