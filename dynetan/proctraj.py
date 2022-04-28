@@ -1582,27 +1582,30 @@ class DNAproc:
                                             reverse=True) )
             
             self.nodesComm[win]["commOrderEigenCentr"] = copy.deepcopy( communitiesOrdEigen )
-    
-    def interfaceAnalysis(self, selAstr, selBstr, betweenDist = 15, samples = 10):
+
+    def interfaceAnalysis(self, selAstr, selBstr, betweenDist = 15, samples = 10, verbose=0):
         '''Detects interface between molecules.
-        
+
         Based on user-defined atom selections, the function detects residues (and their network nodes) that are close to the interface between both atom selections. That may include amino acids in the interface, as well as ligands, waters and ions.
-        
+
         Only nodes that have edges to nodes on the side of the interface are selected.
-        
+
         Using a sampling of simulation frames assures that transient contacts will be detected by this analysis.
-        
+
         Args:
             selAstr (str) : Atom selection.
             selBstr (str) : Atom selection.
             betweenDist (float) : Cutoff distance for selection of atoms that are within *betweenDist* from both selections.
             samples (int) : Number of frames to be sampled for detection of interface residues.
-        
+
+        Returns:
+            Number of unique nodes in interface node pairs.
+
         '''
-        
+
         # Select the necessary stride so that we get *samples*.
         stride = int(np.floor(len(self.workU.trajectory)/samples))
-        
+
         selPtn = self.workU.select_atoms(selAstr)
         selNcl = self.workU.select_atoms(selBstr)
 
@@ -1610,24 +1613,36 @@ class DNAproc:
 
         # Find selection of atoms that are within "betweenDist" from both selections.
         # Get selection of nodes represented by the atoms by sampling several frames.
-        for ts in tk.log_progress(self.workU.trajectory[:samples*stride:stride], every=1, 
+        for ts in tk.log_progress(self.workU.trajectory[:samples*stride:stride], every=1,
                             name="Samples",size=samples):
-            
-            contactSel = mdaB(self.workU.select_atoms("all"), selPtn, selNcl, betweenDist )    
+
+            contactSel = mdaB(self.workU.select_atoms("all"), selPtn, selNcl, betweenDist )
+
+            # This checks the type of the MDAnalysis results. If the selection or between distance
+            # lead to a NULL selection, the function returns 0 ("zero"), otherwise, it returns
+            # an "AtomGroup" instance.
+            if not isinstance(contactSel, mda.AtomGroup):
+                if verbose:
+                    print("Warning: No contacts found in this interface for timestep {}".format(ts.time))
+                continue
+
             contactNodes.update(np.unique( self.atomToNode[ contactSel.atoms.ix_array ] ))
-        
+
+        if len(contactNodes) == 0:
+            print("No contacts found in this interface. Check your selections and sampling.")
+            return(0)
+
         # Makes it into a list for better processing
         contactNodesL = np.asarray(list(contactNodes))
-        
+
         # Sanity check.
         # Verifies possible references from atoms that had no nodes.
         if len(contactNodesL[ contactNodesL < 0 ]):
             print("ERROR! There are {} atoms not represented by nodes! Verify your universe and atom selection.".format(len(contactNodesL[ contactNodesL < 0 ])))
-        
+            return(-1)
+
         # These are all nodes in both selections.
         numContactNodesL = len(contactNodes)
-        
-        #print("{0} nodes found in the interface.".format(numContactNodesL))
 
         # Filter pairs of nodes that have contacts
         contactNodePairs = []
@@ -1641,18 +1656,16 @@ class DNAproc:
         # These are all pairs of nodes that make direct connections. These pairs WILL INCLUDE
         #    pairs where both nodes are on the same side of the interface.
         contactNodePairs = np.asarray( contactNodePairs, dtype=np.int )
-        
-        #print("{0} contacting node pairs found in the interface.".format(len(contactNodePairs)))
 
         def inInterface(nodesAtmSel, i, j):
             segID1 = nodesAtmSel.atoms[i].segid
             segID2 = nodesAtmSel.atoms[j].segid
-            
+
             if (segID1 != segID2) and ((segID1 in self.segIDs) or (segID2 in self.segIDs)):
                 return True
             else:
                 return False
-        
+
         # These are pairs where the nodes are NOT on the same selection, that is, pairs that connect
         #   the two atom selections.
         self.interNodePairs = [ (i,j) for i,j in contactNodePairs if inInterface(self.nodesAtmSel, i, j) ]
@@ -1661,11 +1674,7 @@ class DNAproc:
 
         self.contactNodesInter = np.unique(self.interNodePairs)
         print("{0} unique nodes in interface node pairs.".format(len(self.contactNodesInter)))
-        
-        
-        
-        
-        
-        
+
+        return(len(self.contactNodesInter))
         
         
