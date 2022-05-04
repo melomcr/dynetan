@@ -5,7 +5,7 @@ with open("README.rst", "r") as fh:
 
 setuptools.setup(
     name="dynetan", 
-    version="1.1.6",
+    version="1.1.7",
     author="Marcelo C. R. Melo",
     author_email="melomcr@gmail.com",
     description="A Python implementation for Dynamical Network Analysis.",
