@@ -1517,7 +1517,8 @@ class DNAproc:
     def calcEigenCentral(self):
         '''Wrapper for calculation of node centrality.
         
-        Calculates ode centrality for all nodes in all simulation windows. This calculation is relatively inexpensive and is only implemented for serial processing.
+        Calculates node centrality for all nodes in all simulation windows. 
+        This calculation is relatively inexpensive and is only implemented for serial processing.
         
         All results are stored in the network graph itself.
         
@@ -1537,6 +1538,13 @@ class DNAproc:
         For more details, see `the original reference <http://iopscience.iop.org/article/10.1088/1742-5468/2008/10/P10008/meta>`_.
         
         '''
+        
+        if "eigenvector" in self.nxGraphs[0].nodes[0].keys():
+            eigenvAvail = True
+        else:
+            eigenvAvail = False
+            print("WARNING: Node centrality was not calculated (\"eigenvector\" attribute not found in graph nodes).")
+            print("Nodes will not be ordered by centrality and communities will not be ordered by highest node centrality.")
         
         self.nodesComm = {}
         
@@ -1558,16 +1566,18 @@ class DNAproc:
                 # First get a list of just the nodes in that class
                 nodesInClass = [n for n in self.nxGraphs[win].nodes() if self.nxGraphs[win].nodes[n]['modularity'] == comm]
 
-                # Then create a dictionary of the eigenvector centralities of those nodes
-                nodesInClassEigenVs = {n:self.nxGraphs[win].nodes[n]['eigenvector'] for n in nodesInClass}
+                if eigenvAvail:
 
-                # Then sort that dictionary
-                nodesInClassEigenVsOrd = sorted(nodesInClassEigenVs.items(), 
-                                                key=itemgetter(1), 
-                                                reverse=True)
-                nodesInClassEigenVsOrdList = [x[0] for x in nodesInClassEigenVsOrd]
+                    # Then create a dictionary of the eigenvector centralities of those nodes
+                    nodesInClassEigenVs = {n:self.nxGraphs[win].nodes[n]['eigenvector'] for n in nodesInClass}
+
+                    # Then sort that dictionary
+                    nodesInClassEigenVsOrd = sorted(nodesInClassEigenVs.items(), 
+                                                    key=itemgetter(1), 
+                                                    reverse=True)
+                    nodesInClass = [x[0] for x in nodesInClassEigenVsOrd]
                 
-                self.nodesComm[win]["commNodes"][comm] = copy.deepcopy( nodesInClassEigenVsOrdList )
+                self.nodesComm[win]["commNodes"][comm] = copy.deepcopy( nodesInClass )
             
             # Orders communities based on size.
             communitiesOrdSize = list( sorted(self.nodesComm[win]["commNodes"].keys(),
@@ -1576,12 +1586,13 @@ class DNAproc:
             
             self.nodesComm[win]["commOrderSize"] = copy.deepcopy( communitiesOrdSize )
             
-            # Orders communities based on highest eigenvector centrality of all its nodes.
-            communitiesOrdEigen = list( sorted(self.nodesComm[win]["commNodes"].keys(), 
-                                            key=lambda k: self.nxGraphs[win].nodes[self.nodesComm[win]["commNodes"][k][0]]['eigenvector'], 
-                                            reverse=True) )
-            
-            self.nodesComm[win]["commOrderEigenCentr"] = copy.deepcopy( communitiesOrdEigen )
+            if eigenvAvail:
+                # Orders communities based on highest eigenvector centrality of all its nodes.
+                communitiesOrdEigen = list( sorted(self.nodesComm[win]["commNodes"].keys(), 
+                                                key=lambda k: self.nxGraphs[win].nodes[self.nodesComm[win]["commNodes"][k][0]]['eigenvector'], 
+                                                reverse=True) )
+                
+                self.nodesComm[win]["commOrderEigenCentr"] = copy.deepcopy( communitiesOrdEigen )
 
     def interfaceAnalysis(self, selAstr, selBstr, betweenDist = 15, samples = 10, verbose=0):
         '''Detects interface between molecules.
