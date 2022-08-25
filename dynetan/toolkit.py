@@ -17,146 +17,6 @@ def diagnostic():
     
     return mda.lib.distances.USED_OPENMP
 
-## Progress Bar with time estimate
-## Based on https://github.com/alexanderkuk/log-progress
-def log_progress(sequence: list, every=None, size=None, name='Items', userProgress=None):
-    '''Creates a progress bar in jupyter notebooks.
-    
-    Automatically detects the size of a list and estimates the best step
-    size for progress bar updates. This function also automatically estimates
-    the total time to completion of the iterations, updating the estimate using 
-    the time that every step takes.
-    
-    If the sequence argument is an iterator, the total number of elements cannot 
-    determined. In this case, the user must define the `every` parameter to indicate
-    the update frequency of the progress bar.
-    
-    If the progress bar is used in a nested loop, passing a list to the `userProgress` 
-    argument will force the re-utilization of `ipywidgets` objects, preventing the 
-    creation of a new progress bar at every iteration of the inner loop.
-    
-    This progress bar was based on https://github.com/alexanderkuk/log-progress.
-    
-    Args:
-        sequence : An iterable object.
-        every (int): The update frequency.
-        size (int): The number of elements in the sequence.
-        name (str): The name of the progress bar.
-        userProgress (list): List for creation of nested progress bars.
-    
-    '''
-    from ipywidgets import IntProgress, HTML, HBox, Label
-    from IPython.display import display
-    from numpy import mean as npmean
-    from collections import deque
-    from math import floor
-    from datetime import datetime
-    from string import Template
-    
-    is_iterator = False
-    if size is None:
-        try:
-            size = len(sequence)
-        except TypeError:
-            is_iterator = True
-    if size is not None:
-        if every is None:
-            if size <= 200:
-                every = 1
-            else:
-                every = floor(float(size)*0.005)     # every 0.5%, minimum is 1
-    else:
-        assert every is not None, 'sequence is iterator, set every'
-    
-    # For elapsed time
-    initTime = datetime.now()
-    totTime = "?"
-    labTempl = Template(" (~ $min total time (min) ; $ell minutes elapsed)")
-    
-    # If provided, we use the objects already created.
-    # If not provided, we create from scratch.
-    if userProgress is None or userProgress == []:
-        
-        progress = IntProgress(min=0, max=1, value=1)
-
-        label = HTML()
-        labelTime = Label("")
-
-        box = HBox(children=[label, progress, labelTime])
-        
-        if userProgress == []:
-            userProgress.append(box)
-        display(box)
-    else:
-        box = userProgress[0]
-    
-    if is_iterator:
-        #progress = IntProgress(min=0, max=1, value=1)
-        box.children[1].min = 0
-        box.children[1].max = 1
-        box.children[1].value = 1
-        box.children[1].bar_style = 'info'
-    else:
-        #progress = IntProgress(min=0, max=size, value=0)
-        box.children[1].min = 0
-        box.children[1].max = size
-        box.children[1].value = 0
-
-        # For remaining time estimation
-        deltas = deque()
-        lastTime = None
-        meandelta = 0
-    
-    index = 0
-    try:
-        for index, record in enumerate(sequence, 1):
-            if index == 1 or index % every == 0:
-                if is_iterator:
-                    box.children[0].value = '{name}: {index} / ?'.format(
-                        name=name,
-                        index=index
-                    )
-                else:
-                    box.children[1].value = index
-                    box.children[0].value = u'{name}: {index} / {size}'.format(
-                        name=name,
-                        index=index,
-                        size=size
-                    )
-                
-                    # Estimates remaining time with average delta per iteration
-                    # Uses (at most) the last 30 iterations
-                    if len(deltas) == 101:
-                        deltas.popleft()
-                    
-                    if lastTime:
-                        deltas.append( (datetime.now() - lastTime).total_seconds() )
-                        meandelta = npmean(deltas)/60.0    # From seconds to minute
-                        totTime = round(meandelta*size/float(every), 3)  # Mean iteration for all iterations
-                    else:
-                        totTime = "?"       # First iteration has no time
-                    
-                    lastTime = datetime.now()
-                
-                # All ellapsed time in minutes
-                elapsed = round( (datetime.now() - initTime).total_seconds()/60.0, 3)
-
-                box.children[2].value = labTempl.safe_substitute({"min":totTime,
-                                                       "ell":elapsed})
-                
-            yield record
-    except:
-        box.children[1].bar_style = 'danger'
-        raise
-    else:
-        box.children[1].bar_style = 'success'
-        box.children[1].value = index
-        box.children[0].value = "{name}: {index}".format(
-            name=name,
-            index=str(index or '?')
-        )
-
-
 def getNGLSelFromNode(nodeIndx, atomsel, atom=True):
     '''Creates an atom selection for NGLView.
     
@@ -327,3 +187,105 @@ def getCartDist(src,trgt, numNodes, nodeDists, distype=0):
     
     return nodeDists[distype, k]
     
+def formatNodeGroups(atmGrp, nodeAtmStrL=["CA"], grpAtmStrL=None):
+    '''Format code to facilitate the definition of node groups.
+
+    This convenience function helps with the definition of node groups.
+    It will produce formated python code that the user can copy directly
+    into a definition of atom groups.
+
+    If the entire residue is to be represented by a single node, then `grpAtmStrL`
+    does not need to be defined. However, if more than one node is defined in `nodeAtmStrL`,
+    then the same number of lists need to be added to `grpAtmStrL` to define each node group.
+
+    Args:
+        atmGrp (MDanalysis atom group object): The atom group object containing one residue.
+        nodeAtmStrL (list): A list of strings defining atoms that will represent nodes in network analysis.
+        grpAtmStrL (list): A list of lists containing atoms that belong to each node group.
+
+    Returns:
+        ---
+
+    '''
+
+    if not (isinstance(nodeAtmStrL,list)):
+        print("ERROR: Expected a list argument for nodeAtmStr, but received: {}.".format(type(nodeAtmStrL).__name__))
+        return
+
+    # We use this to check if the input is making sense, and to get the residue name.
+    if len(atmGrp.residues) != 1:
+        print("ERROR: Expected 1 residue in atom group, but received {}.".format(len(atmGrp.residues)))
+        return
+
+    atmNames = list(atmGrp.names)
+    resName  = atmGrp.resnames[0]
+
+    if not (set(nodeAtmStrL).issubset(set(atmNames))):
+        errorSet = set(nodeAtmStrL) - set(atmNames)
+        print("ERROR: The following node atoms are present in the residue: {}".format(errorSet))
+        return
+
+    print("""
+        You can copy and paste the following lines into your notebook to define
+        the node group(s) for your new residue.
+        """)
+
+    print("usrNodeGroups[\"{}\"] = {{}}".format(resName) )
+
+    if len(nodeAtmStrL) == 1:
+        print("usrNodeGroups[\"{}\"][\"{}\"] = {}".format(
+            resName, nodeAtmStrL[0], set(list(atmGrp.names))) )
+
+    else:
+
+        if not grpAtmStrL:
+            print("ERROR: The argument `grpAtmStrL` is not defined.")
+            return
+
+        if len(grpAtmStrL) != len(nodeAtmStrL):
+            print("ERROR: Expected {} lists of atoms in `grpAtmStrL`, but received {}.".format(len(nodeAtmStrL), len(grpAtmStrL)))
+            return
+
+        for nodeAtmStr, grpAtmStr in zip(nodeAtmStrL,grpAtmStrL):
+            print("usrNodeGroups[\"{}\"][\"{}\"] = {}".format(
+                resName, nodeAtmStr, set(grpAtmStr) ) )
+
+def showNodeGrps(w, atmGrp, usrNodeGroups, nodeAtmSel=""):
+    '''Labels atoms in an NGLview instance to visualize node groups.
+
+    This convenience function helps with the definition of node groups.
+    It will label atoms and nodes in a structure to help visualize the selection
+    of atoms and nodes.
+
+    Args:
+        w (nglview object): The initialized NGLview object.
+        atmGrp (MDanalysis atom group object): The atom group object containing one residue.
+        usrNodeGroups (dict): A dictionary of dictionaries with node groups for a given residue.
+        nodeAtmSel (str): A string selecting a node atom so that only atoms in that group are labeled.
+
+    Returns:
+        ---
+
+    '''
+
+    selectedAtoms = set()
+    for resName,nodeGrp in usrNodeGroups.items():
+        for nodeAtm,grpAtms in nodeGrp.items():
+            if (nodeAtmSel!="") and (nodeAtmSel!=nodeAtm):
+                continue
+            selTxt = ["." + atmStr for atmStr in grpAtms if atmStr != nodeAtm ]
+            selTxt = " ".join(selTxt)
+
+            w.add_representation(repr_type="label", selection=selTxt, labelType="atomname", color="black")
+            w.add_representation(repr_type="label", selection="."+nodeAtm, labelType="atomname", color="green")
+
+            selectedAtoms.update(set(grpAtms))
+
+    # Create a set of atoms not selected by any node group.
+    unSelectedAtoms = set(atmGrp.names) - selectedAtoms
+
+    if len(unSelectedAtoms) and (nodeAtmSel==""):
+        selTxt = ["." + atmStr for atmStr in unSelectedAtoms ]
+        selTxt = " ".join(selTxt)
+
+        w.add_representation(repr_type="label", selection=selTxt, labelType="atomname", color="red")
