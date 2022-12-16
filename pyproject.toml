@@ -4,19 +4,16 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dynetan"
-version = "2.0.0"
 authors = [
   { name="Marcelo C. R. Melo", email="melomcr@gmail.com" },
 ]
+
+dynamic = ["version"]
+
 description = "A Python implementation for Dynamical Network Analysis."
 readme = {"file" = "README.md", "content-type" = "text/markdown"}
-requires-python = ">=3.9"
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
-    "Operating System :: OS Independent",
-]
 
+requires-python = ">=3.9"
 dependencies = [
 "MDAnalysis",
 "SciPy",
@@ -31,6 +28,34 @@ dependencies = [
 "colorama"
 ]
 
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+]
+
 [project.urls]
 "Homepage" = "https://github.com/melomcr/dynetan"
 "Bug Tracker" = "https://github.com/melomcr/dynetan/issues"
+
+[tool.hatch.version]
+path = "src/dynetan/__about__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src",
+  "/tests",
+  "/docs",
+  "INSTALL.md"
+]
+
+[tool.hatch.envs.test]
+dependencies = [
+  "coverage[toml]",
+  "pytest",
+  "pytest-cov",
+  "pytest-mock",
+  "flake8",
+  "mypy",
+  "tox"
+]

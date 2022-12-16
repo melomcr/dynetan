@@ -1,5 +1,0 @@
-include README.md
-include INSTALL.md
-include LICENSE
-include MANIFEST.in
-include src/dynetan/vizmod/*
