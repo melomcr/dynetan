@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dynetan"
+version = "2.0.0"
+authors = [
+  { name="Marcelo C. R. Melo", email="melomcr@gmail.com" },
+]
+description = "A Python implementation for Dynamical Network Analysis."
+readme = {"file" = "README.md", "content-type" = "text/markdown"}
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+"MDAnalysis",
+"SciPy",
+"NumPy",
+"pandas",
+"networkx",
+"numba",
+"cython",
+"h5py",
+"python-louvain",
+"tqdm",
+"colorama"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/melomcr/dynetan"
+"Bug Tracker" = "https://github.com/melomcr/dynetan/issues"
