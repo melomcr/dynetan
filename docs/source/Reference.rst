@@ -5,12 +5,14 @@ Reference
 ..    :Release: |release|
 ..    :Date: |today|
 
-The documentation provided here (attempts to) follow the Google style of code documentation, and is built    using Sphinx and its Napoleon module.
+The documentation provided here (attempts to) follow the Google style of code
+documentation, and is built using Sphinx and its Napoleon module.
 
 Process Trajectory Data
 -----------------------
 
-This dedicated class controls all trajectory processing necessary for Dynamical Network Analysis.
+This dedicated class controls all trajectory processing necessary for Dynamical
+Network Analysis.
 
 .. automodule:: dynetan.proctraj
    :members:
@@ -34,7 +36,8 @@ This module contains auxiliary functions for the parallel calculation of node co
 Generalized Correlations
 ------------------------
 
-This module contains auxiliary functions for the parallel calculation of generalized correlation coefficients.
+This module contains auxiliary functions for the parallel calculation of
+generalized correlation coefficients.
 
 .. automodule:: dynetan.gencor
    :members:
@@ -42,7 +45,8 @@ This module contains auxiliary functions for the parallel calculation of general
 Network Properties
 -------------------
 
-This module contains auxiliary functions for the parallel calculation of network properties.
+This module contains auxiliary functions for the parallel calculation of network
+properties.
 
 .. automodule:: dynetan.network
    :members:
@@ -50,7 +54,9 @@ This module contains auxiliary functions for the parallel calculation of network
 Toolkit
 --------
 
-This module contains auxiliary functions for manipulation of atom selections, aquiring pre-calculated cartesian distances, and user interface in jupyter notebooks.
+This module contains auxiliary functions for manipulation of atom selections,
+acquiring pre-calculated cartesian distances, and user interface in jupyter
+notebooks.
 
 .. automodule:: dynetan.toolkit
    :members:
@@ -58,7 +64,8 @@ This module contains auxiliary functions for manipulation of atom selections, aq
 Visualization
 --------------
 
-This module contains auxiliary functions for visualization of the system and network analysis results.
+This module contains auxiliary functions for visualization of the system and
+network analysis results.
 
 .. automodule:: dynetan.viz
    :members:

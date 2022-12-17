@@ -1,2 +1,2 @@
-.. include:: ../../INSTALL.rst
+.. include:: ../../INSTALL.md
 

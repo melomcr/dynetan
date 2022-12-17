@@ -4,7 +4,11 @@
 Dynamical Network Analysis
 ===========================
 
-This package was bulit to provide an updated and enhanced Python implementation of the Dynamical Network Analysis method, for the analysis of Molecular Dynamics simulations. The package was optimized for interactive use through Jupyter Notebooks (see :ref:`Tutorial <Tutorial>`), and allows for extensive customization of analysis to suit research-specific needs.
+This package was built to provide an updated and enhanced Python implementation
+of the Dynamical Network Analysis method, for the analysis of Molecular Dynamics
+simulations. The package was optimized for interactive use through Jupyter
+Notebooks (see :ref:`Tutorial <Tutorial>`), and allows for extensive
+customization of analysis to suit research-specific needs.
 
 .. toctree::
    :maxdepth: 2

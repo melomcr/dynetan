@@ -2,21 +2,28 @@
 Usage
 ========
 
-This package was bulit to provide an updated and enhanced Python implementation of the Dynamical Network Analysis method, for the analysis of Molecular Dynamics simulations. The package was optimized for interactive use through Jupyter Notebooks (see :ref:`Tutorial <Tutorial>`), and allows for extensive customization of analysis to suit research-specific needs.
+This package was built to provide an updated and enhanced Python implementation
+of the Dynamical Network Analysis method, for the analysis of Molecular Dynamics
+simulations. The package was optimized for both interactive use through Jupyter
+Notebooks (see :ref:`Tutorial <Tutorial>`) and for command-line-interface use
+(such as in scripts for remote execution. The package allows for extensive
+customization of analysis to suit research-specific needs.
 
-We present below an overview of the process of analysing an MD simulation, using the OMP decarboxylase example that was examined in the reference publication (see :ref:`Citing <Citing>`) and the associated :ref:`Tutorial <Tutorial>`.
+We present below an overview of the process of analysing an MD simulation,
+using the OMP decarboxylase example that was examined in the reference
+publication (see :ref:`Citing <Citing>`) and the associated
+:ref:`Tutorial <Tutorial>`.
 
-
-Load your simulation data by creating a :py:class:`~dynetan.proctraj.DNAproc` object::
+Load your simulation data by creating a :py:class:`~dynetan.proctraj.DNAproc`object::
 
     # Load the python package
     import os
     import dynetan
-    
+
     # Create the object that processes MD trajectories.
     dnap = DNAproc()
 
-    
+
 Select the location of simulation files::
 
     # Path where input files will searched and results be written.
@@ -28,15 +35,19 @@ Select the location of simulation files::
     # DCD file name
     dcdFiles = [os.path.join(workDir, "decarboxylase.1.dcd")]
 
-Select the number of windows into which your trajectory will be split. This can correspond to a long contiguous simulation or multiple independent concatenated replicas of the same system::
+Select the number of windows into which your trajectory will be split.
+This can correspond to a long contiguous simulation or multiple independent
+concatenated replicas of the same system::
 
     # Number of windows created from full simulation.
     numWinds = 4
 
     # Sampled frames per window (for detection of structural waters)
     numSampledFrames = 10
-    
-Select a ligand to be analysed and segment IDs for the biomolecules to be studied. For automatic detection of structural water molecules, provide the name of the solvent residue::
+
+Select a ligand to be analysed and segment IDs for the biomolecules to be studied.
+For automatic detection of structural water molecules, provide the name of the
+solvent residue::
 
     ligandSegID = "OMP"
 
@@ -88,40 +99,48 @@ Finally, load all data to the :py:class:`~dynetan.proctraj.DNAproc` object::
     dnap.setUsrNodeGroups(usrNodeGroups)
 
 
-In its simplest form, the code will load the MD simulation, detect structural water molecules, and create a network representation of the nodes selected so far::
+In its simplest form, the code will load the MD simulation, detect structural
+water molecules, and create a network representation of the nodes selected so far::
 
     dnap.loadSystem(psfFile,dcdFiles)
-    
+
     dnap.selectSystem(withSolvent=True)
-    
+
     dnap.prepareNetwork()
 
-After the nodes and node groups are selected, the system is aligned, contacts are detected, and the calculation of correlation coefficients can begin::
+After the nodes and node groups are selected, the system is aligned, contacts
+are detected, and the calculation of correlation coefficients can begin::
 
     dnap.alignTraj(inMemory=True)
-    
+
     dnap.findContacts(stride=1)
-    
+
     dnap.calcCor(ncores=1)
 
-With the correlation matrix of each simulation window, we create graph representations for each simulation window, and calculate network properties such as optimal paths, betweenness and communities::
+With the correlation matrix of each simulation window, we create graph
+representations for each simulation window, and calculate network properties
+such as optimal paths, betweenness and communities::
 
     dnap.calcGraphInfo()
-    
+
     dnap.calcOptPaths(ncores=1)
-    
+
     dnap.calcBetween(ncores=1)
-    
+
     dnap.calcCommunities()
-    
-To automate the detection of edges between two separate subunits of a ciomolecular complex, we can specify segment IDs and request the identification of interface connections::
+
+To automate the detection of edges between two separate subunits of a biomolecular
+complex, we can specify segment IDs and request the identification of interface
+connections::
 
     dnap.interfaceAnalysis(selAstr="segid ENZY", selBstr="segid OMP")
-    
+
 Finally, all data can be saved to disk::
 
     dnap.saveData(fullPathRoot)
-    
 
-All the interactive visualization of the structure and network nodes and edges, optimal paths, communities, and high resolution rendering are performed through jupyter notebooks. Please refer to the :ref:`Tutorial <Tutorial>` for detailed examples.
 
+All the interactive visualization of the structure and network nodes and edges,
+optimal paths, communities, and high resolution rendering are performed through
+jupyter notebooks. Please refer to the :ref:`Tutorial <Tutorial>` for
+detailed examples.
