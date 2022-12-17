@@ -1,7 +1,7 @@
- 
+
 """
 
-Dynamic Network Analysis 2.0
+Dynamic Network Analysis
 
 .. moduleauthor:: Marcelo C. R. Melo <melomcr@gmail.com>
 
@@ -16,6 +16,10 @@ from . import toolkit
 from . import viz
 
 
-__all__ = ["contact","datastorage","gencor","network","proctraj","toolkit", "viz"]
-
- 
+__all__ = ["contact",
+           "datastorage",
+           "gencor",
+           "network",
+           "proctraj",
+           "toolkit",
+           "viz"]

@@ -8,16 +8,16 @@ import numpy as np
 
 
 def getCommunityColors():
-    '''Gets standardized colors for communities.
+    """Gets standardized colors for communities.
 
     This function loads pre-specified colors that match those available in
-    `VMD <http://www.ks.uiuc.edu/Research/vmd/>`_.
+    `VMD <https://www.ks.uiuc.edu/Research/vmd/>`_.
 
     Returns:
         Returns a pandas dataframe with a VMD-compatible color scale for node
         communities.
 
-    '''
+    """
 
     #
     # This function uses the `importlib.resources` package to load a template
@@ -78,7 +78,7 @@ def prepTclViz(baseName, numWinds, ligandSegid="NULL", trgDir="./"):
 
     # Replace base name of output files, number of windows, and ligand segid.
     tcvTemplateFile = tcvTemplateFile.replace('BASENAMETMP', baseName)
-    tcvTemplateFile = tcvTemplateFile.replace('NUMSTEPTMP', numWinds)
+    tcvTemplateFile = tcvTemplateFile.replace('NUMSTEPTMP', str(numWinds))
     tcvTemplateFile = tcvTemplateFile.replace('LIGANDTMP', ligandSegid)
     # Replace the path to auxiliary TCLs
     tcvTemplateFile = tcvTemplateFile.replace('PATHTMP', str(pathToTcls))
@@ -173,7 +173,7 @@ def showCommunity(nvView, nodeCommDF, commID, window, nodesAtmSel, dnad, colorVa
         commJ = dnad.nxGraphs[window].nodes[j]["modularity"]
 
         # If the pair of nodes is in the same cmmunity, render the edge.
-        if commID == commI == commJ :
+        if commID == commI == commJ:
             viewPath(nvView, [i, j], dnad.distsAll, dnad.maxDirectDist,
                      nodesAtmSel, win=window, opacity=1,
                      color=colorValDict[commID])
@@ -216,7 +216,7 @@ def showCommunityGlobal(nvView, nodeCommDF, commID, window, nodesAtmSel, dnad,
         for indJ, nodeJ in enumerate(nodes[indI+1:]):
 
             # Skip if there is no edge
-            if dnad.corrMatAll[window , nodeI, nodeJ] == 0:
+            if dnad.corrMatAll[window, nodeI, nodeJ] == 0:
                 continue
 
             # Skip if consecutive nodes (makes visualization cheaper)
@@ -263,7 +263,7 @@ def showCommunityByTarget(nvView, nodeCommDF, trgtNodes, window, nodesAtmSel,
         # Get all nodes connected to target node "I"
         nodeJList = np.where(dnad.corrMatAll[window, nodeI, :] > 0)[0]
 
-        for nodeJ in nodeJList :
+        for nodeJ in nodeJList:
 
             # Check if both nodes have communities assigned
             if (nodeI not in allNodes) or (nodeJ not in allNodes):
