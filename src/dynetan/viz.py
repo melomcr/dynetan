@@ -26,20 +26,22 @@ def getCommunityColors():
     #  performance overheads.
     #
     # Docs: https://docs.python.org/3.7/library/importlib.html
-    import importlib.resources as pkg_resources
+    from importlib.resources import open_text as pkg_open_text
     import pandas as pd
 
     from . import vizmod
 
-    colorsFileStream = pkg_resources.open_text(vizmod, 'community_RGB_colors.csv')
-
     # Return a Pandas data frame with a VMD-compatible color scale for node
     # communities.
-    return pd.read_csv(colorsFileStream)
+
+    with pkg_open_text(vizmod, 'community_RGB_colors.csv') as colorsFileStream:
+        commColors = pd.read_csv(colorsFileStream)
+
+    return commColors
 
 
 def prepTclViz(baseName, numWinds, ligandSegid="NULL", trgDir="./"):
-    '''Prepares system-specific TCL script vor visualization.
+    """Prepares system-specific TCL script vor visualization.
 
     This function prepares a TCL script that can be loaded by
     `VMD <http://www.ks.uiuc.edu/Research/vmd/>`_ to create high-resolution
@@ -53,7 +55,7 @@ def prepTclViz(baseName, numWinds, ligandSegid="NULL", trgDir="./"):
         special representations for small molecules.
         trgDir (str) : Directory where TCL and data files will be saved.
 
-    '''
+    """
 
     #
     # This function uses the `importlib.resources` package to load a template
@@ -62,7 +64,7 @@ def prepTclViz(baseName, numWinds, ligandSegid="NULL", trgDir="./"):
     # performance overheads.
     #
     # Docs: https://docs.python.org/3.7/library/importlib.html
-    import importlib.resources as pkg_resources
+    from importlib.resources import read_text as pkg_read_text
     from importlib.resources import path as irpath
     import os
 
@@ -74,18 +76,18 @@ def prepTclViz(baseName, numWinds, ligandSegid="NULL", trgDir="./"):
     with irpath(vizmod, tclFileName) as pathToVizMod:
         pathToTcls = pathToVizMod.parent
 
-    tcvTemplateFile = pkg_resources.read_text(vizmod, tclFileName)
+    tclTemplateFile = pkg_read_text(vizmod, tclFileName)
 
     # Replace base name of output files, number of windows, and ligand segid.
-    tcvTemplateFile = tcvTemplateFile.replace('BASENAMETMP', baseName)
-    tcvTemplateFile = tcvTemplateFile.replace('NUMSTEPTMP', str(numWinds))
-    tcvTemplateFile = tcvTemplateFile.replace('LIGANDTMP', ligandSegid)
+    tclTemplateFile = tclTemplateFile.replace('BASENAMETMP', baseName)
+    tclTemplateFile = tclTemplateFile.replace('NUMSTEPTMP', str(numWinds))
+    tclTemplateFile = tclTemplateFile.replace('LIGANDTMP', ligandSegid)
     # Replace the path to auxiliary TCLs
-    tcvTemplateFile = tcvTemplateFile.replace('PATHTMP', str(pathToTcls))
+    tclTemplateFile = tclTemplateFile.replace('PATHTMP', str(pathToTcls))
 
     # Write new file to local directory
     with open(os.path.join(trgDir, tclFileName), 'w') as file:
-        file.write(tcvTemplateFile)
+        file.write(tclTemplateFile)
 
     msgStr = "The file \'{}\' has been saved in the following folder: {}"
     print(msgStr.format(tclFileName, trgDir))
@@ -94,7 +96,7 @@ def prepTclViz(baseName, numWinds, ligandSegid="NULL", trgDir="./"):
 def viewPath(nvView, path, dists, maxDirectDist, nodesAtmSel, win=0,
              opacity=0.75, color="green", side="both", segments=5,
              disableImpostor=True, useCylinder=True):
-    '''Creates NGLView representation of a path.
+    """Creates NGLView representation of a path.
 
     Renders a series of cylinders to represent a network path.
     The maxDirectDist argument is used as a normalization factor to scale
@@ -104,7 +106,7 @@ def viewPath(nvView, path, dists, maxDirectDist, nodesAtmSel, win=0,
 
     Args:
         nvView (obj) : NGLView object.
-        path (list) : Seqeunce of nodes that define a path.
+        path (list) : Sequence of nodes that define a path.
         maxDirectDist (float): Maximum direct distance between nodes in network.
         nodesAtmSel (obj) : MDAnalysis atom selection object.
         win (int) : Window used for representation.
@@ -115,7 +117,7 @@ def viewPath(nvView, path, dists, maxDirectDist, nodesAtmSel, win=0,
         disableImpostor (bool) : Controls edge rendering quality.
         useCylinder (bool) : Controls edge rendering quality.
 
-    '''
+    """
 
     # TODO: Maybe adapt code to use nx?
     #  nx.reconstruct_path(i, j, pathsPred)
@@ -145,7 +147,7 @@ def viewPath(nvView, path, dists, maxDirectDist, nodesAtmSel, win=0,
 
 
 def showCommunity(nvView, nodeCommDF, commID, window, nodesAtmSel, dnad, colorValDict):
-    '''Creates NGLView representation of a specified community.
+    """Creates NGLView representation of a specified community.
 
     Renders a series of cylinders to represent all edges in the network that
     connect nodes in the same community. Edges between nodes in different
@@ -162,7 +164,7 @@ def showCommunity(nvView, nodeCommDF, commID, window, nodesAtmSel, dnad, colorVa
         dnad (obj) : Dynamical Network Analysis data object.
         colorValDict (obj) : Dictionary that standardizes community colors.
 
-    '''
+    """
 
     # Gets the list of all connected pairs in the system
     connectedPairs = np.asarray(np.where(dnad.corrMatAll[window, :, :] > 0)).T
@@ -181,7 +183,7 @@ def showCommunity(nvView, nodeCommDF, commID, window, nodesAtmSel, dnad, colorVa
 
 def showCommunityGlobal(nvView, nodeCommDF, commID, window, nodesAtmSel, dnad,
                         colorValDict):
-    '''Creates NGLView representation of a specified community.
+    """Creates NGLView representation of a specified community.
 
     This is a variation of :py:func:`showCommunity` created for reducing the
     quality and therefore the cost of creating edge representations. It is
@@ -193,14 +195,15 @@ def showCommunityGlobal(nvView, nodeCommDF, commID, window, nodesAtmSel, dnad,
 
     Args:
         nvView (obj) : NGLView object.
-        nodeCommDF (obj) : Pandas data frame relating node IDs with their communities.
+        nodeCommDF (obj) : Pandas data frame relating node IDs with their
+            communities.
         commID (float): Community ID for the community to be rendered.
         window (int) : Window used for representation.
         nodesAtmSel (obj) : MDAnalysis atom selection object.
         dnad (obj) : Dynamical Network Analysis data object.
         colorValDict (obj) : Dictionary that standardizes community colors.
 
-    '''
+    """
 
     nodes = nodeCommDF.loc[nodeCommDF["Window"+str(window)] == commID, "Node"].values
     nodes.sort()
@@ -210,7 +213,7 @@ def showCommunityGlobal(nvView, nodeCommDF, commID, window, nodesAtmSel, dnad,
         print(warnStr.format(commID, window))
 
     showEdges = []
-    # Loop from fisrt node to next to last node
+    # Loop from first node to next to last node
     for indI, nodeI in enumerate(nodes[0:-1]):
         # Loop from (indI+1) node to last node
         for indJ, nodeJ in enumerate(nodes[indI+1:]):
@@ -224,7 +227,7 @@ def showCommunityGlobal(nvView, nodeCommDF, commID, window, nodesAtmSel, dnad,
                                nodesAtmSel.atoms[nodeJ].resid)
             segIdDiff = np.abs(nodesAtmSel.atoms[nodeI].segid ==
                                nodesAtmSel.atoms[nodeJ].segid)
-            if ((resIdDiff == 1) and (segIdDiff)):
+            if (resIdDiff == 1) and (segIdDiff):
                 continue
 
             showEdges.append((nodeI, nodeJ))
@@ -237,26 +240,28 @@ def showCommunityGlobal(nvView, nodeCommDF, commID, window, nodesAtmSel, dnad,
 
 def showCommunityByTarget(nvView, nodeCommDF, trgtNodes, window, nodesAtmSel,
                           dnad, colorValDict):
-    '''Creates NGLView representation of edges between selected nodes and their contacts.
+    """Creates NGLView representation of edges between selected nodes and
+    their contacts.
 
     Renders a series of cylinders to represent all edges that connect selected
     nodes with other nodes in contact. Only nodes that have been assigned to a
-    community are shown, to minimize the occurence of unstable contacts. Edges
+    community are shown, to minimize the occurrence of unstable contacts. Edges
     between nodes in different communities are still rendered, but shown in
     different representations.
 
     Args:
         nvView (obj) : NGLView object.
-        nodeCommDF (obj) : Pandas data frame relating node IDs with their communities.
+        nodeCommDF (obj) : Pandas data frame relating node IDs with their
+            communities.
         trgtNodes (list): List of node IDs.
         window (int) : Window used for representation.
         nodesAtmSel (obj) : MDAnalysis atom selection object.
         dnad (obj) : Dynamical Network Analysis data object.
         colorValDict (obj) : Dictionary that standardizes community colors.
 
-    '''
+    """
 
-    # Get all nodes in cummunities larger than 1% of nodes.
+    # Get all nodes in communities larger than 1% of nodes.
     allNodes = nodeCommDF["Node"].values
 
     for nodeI in trgtNodes:
@@ -288,7 +293,7 @@ def showCommunityByTarget(nvView, nodeCommDF, trgtNodes, window, nodesAtmSel,
 
 def showCommunityByID(nvView, cDF, clusID, system, refWindow, shapeCounter,
                       nodesAtmSel, colorValDictRGB, system1, refWindow1):
-    '''Creates NGLView representation of nodes in a community.
+    """Creates NGLView representation of nodes in a community.
 
     Renders a series of spheres to represent all nodes in the selected community.
 
@@ -314,9 +319,9 @@ def showCommunityByID(nvView, cDF, clusID, system, refWindow, shapeCounter,
         system1 (str) : System to be used for rendering.
         refWindow1 (int) : Window used for rendering.
 
-    '''
+    """
 
-    # Dysplays all nodes of a cluster and colors them by cluster ID.
+    # Displays all nodes of a cluster and colors them by cluster ID.
 
     nodeList = cDF.loc[(cDF.system == system) &
                        (cDF.Window == refWindow) &
@@ -338,7 +343,7 @@ def showCommunityByID(nvView, cDF, clusID, system, refWindow, shapeCounter,
 
 def showCommunityByNodes(nvView, cDF, nodeList, system, refWindow, shapeCounter,
                          nodesAtmSel, colorValDictRGB):
-    '''Creates NGLView representation of nodes in a community.
+    """Creates NGLView representation of nodes in a community.
 
     Renders a series of spheres to represent all nodes in the selected community.
 
@@ -353,9 +358,9 @@ def showCommunityByNodes(nvView, cDF, nodeList, system, refWindow, shapeCounter,
         nodesAtmSel (obj) : MDAnalysis atom selection object.
         colorValDictRGB (obj) : Dictionary that standardizes community colors.
 
-    '''
+    """
 
-    # Dysplays a given list of nodes and colors them by cluster ID.
+    # Displays a given list of nodes and colors them by cluster ID.
 
     for node in nodeList:
         clusID = cDF.loc[(cDF.system == system) &
