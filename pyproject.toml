@@ -39,7 +39,7 @@ classifiers = [
 "Bug Tracker" = "https://github.com/melomcr/dynetan/issues"
 
 [tool.hatch.version]
-path = "src/dynetan/__about__.py"
+path = "src/dynetan/version.py"
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -64,6 +64,9 @@ dependencies = [
 testpaths = ["tests"]
 addopts = [
     "--import-mode=importlib",
+    "--cov=dynetan",
+    "--cov-report=term-missing"
+#    "--cov-report=html"
 ]
 # Individual warnings filters are specified as a sequence of fields separated by colons:
 # action:message:category:module:line
