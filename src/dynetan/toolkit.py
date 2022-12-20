@@ -8,20 +8,20 @@ import MDAnalysis as mda
 
 
 def diagnostic():
-    '''Diagnostic for parallelization of MDAnalysis.
+    """Diagnostic for parallelization of MDAnalysis.
 
     Convenience function to detect if the current MDAnalysis
     installation supports OpenMP.
 
-    '''
+    """
 
     return mda.lib.distances.USED_OPENMP
 
 
 def getNGLSelFromNode(nodeIndx, atomsel, atom=True):
-    '''Creates an atom selection for NGLView.
+    """Creates an atom selection for NGLView.
 
-    Retunrs an atom selection for a whole residue or single atom in the NGL
+    Returns an atom selection for a whole residue or single atom in the NGL
     syntax.
 
     Arguments:
@@ -36,7 +36,7 @@ def getNGLSelFromNode(nodeIndx, atomsel, atom=True):
     Returns:
         str: Text string with NGL-style atom selection.
 
-    '''
+    """
     node = atomsel.atoms[nodeIndx]
     if atom:
         return " and ".join([str(node.resid), node.resname, "." + node.name])
@@ -44,8 +44,8 @@ def getNGLSelFromNode(nodeIndx, atomsel, atom=True):
         return " and ".join([str(node.resid), node.resname])
 
 
-def getNodeFromSel(selection, atomsel, atomToNode):
-    '''Gets the node index from an atom selection.
+def getNodeFromSel(selection, atmsel, atm_to_node):
+    """Gets the node index from an atom selection.
 
     Returns one or more node indices when given an MDAnalysis atom selection
     string.
@@ -53,17 +53,17 @@ def getNodeFromSel(selection, atomsel, atomToNode):
     Arguments:
         selection (str):
             MDAnalysis atom selection string.
-        atomsel (obj):
+        atmsel (obj):
             MDAnalysis atom-selection object.
-        atomToNode (obj):
+        atm_to_node (obj):
             Dynamic Network Analysis atom-to-node mapping object.
 
     Returns:
         np.array : List of node indices mapped to the provided atom selection.
 
-    '''
+    """
 
-    nodes = atomToNode[atomsel.select_atoms(selection).ix_array]
+    nodes = atm_to_node[atmsel.select_atoms(selection).ix_array]
 
     # There may be atoms not assigned to nodes, e.g., if a whole nucleotide was
     #   kept but only one of its nodes had contacts.
@@ -71,7 +71,7 @@ def getNodeFromSel(selection, atomsel, atomToNode):
 
 
 def getSelFromNode(nodeIndx, atomsel, atom=False):
-    '''Gets the MDanalysis selection string from a node index.
+    """Gets the MDanalysis selection string from a node index.
 
     Given a node index, this function builds an atom selection string in the
     following format: resname and resid and segid [and name]
@@ -88,7 +88,7 @@ def getSelFromNode(nodeIndx, atomsel, atom=False):
     Returns:
         str: Text string with MDAnalysis-style atom selection.
 
-    '''
+    """
     nodeIndx = int(nodeIndx)
     if nodeIndx < 0:
         raise
@@ -106,7 +106,7 @@ def getSelFromNode(nodeIndx, atomsel, atom=False):
 
 
 def getPath(src, trg, nodesAtmSel, preds, win=0):
-    '''Gets connecting path between nodes.
+    """Gets connecting path between nodes.
 
     This function recovers the list of nodes that connect `src` and `trg` nodes.
     An internal sanity check is performed to see if both nodes belong to the same
@@ -123,7 +123,7 @@ def getPath(src, trg, nodesAtmSel, preds, win=0):
         np.array: A NumPy array with the list of nodes or an empty list in case
         no optimal path could be found.
 
-    '''
+    """
 
     import numpy as np
 
@@ -151,20 +151,20 @@ def getPath(src, trg, nodesAtmSel, preds, win=0):
 
 
 def getLinIndexC(src, trgt, dim):
-    '''Conversion from 2D matrix indices to 1D triangular.
+    """Conversion from 2D matrix indices to 1D triangular.
 
     Converts from 2D matrix indices to 1D (n*(n-1)/2) unwrapped triangular
     matrix index.
 
     Args:
         src (int): Source node.
-        trg (int): Target node.
+        trgt (int): Target node.
         dim (int): Dimension of square matrix
 
     Returns:
         int: 1D index in unwrapped triangular matrix.
 
-    '''
+    """
 
     # https://stackoverflow.com/questions/27086195/linear-index-upper-triangular-matrix
     k = (dim*(dim-1)/2) - (dim-src)*((dim-src)-1)/2 + trgt - src - 1.0
@@ -172,16 +172,16 @@ def getLinIndexC(src, trgt, dim):
 
 
 def getCartDist(src, trgt, numNodes, nodeDists, distype=0):
-    '''Get cartesian distance between nodes.
+    """Get cartesian distance between nodes.
 
-    Retreives the cartesian distance between atoms representing nodes `src` and
+    Retrieves the cartesian distance between atoms representing nodes `src` and
     `trgt`. The `distype` argument causes the function to return the mean
     distance (type 0: default), Standard Error of the Mean (SEM) (type 1),
     minimum distance (type 2), or maximum distance (type 3).
 
     Args:
         src (int): Source node.
-        trg (int): Target node.
+        trgt (int): Target node.
         numNodes (int): Total number of nodes in the system.
         distype (int): Type of cartesian distance output.
 
@@ -190,7 +190,7 @@ def getCartDist(src, trgt, numNodes, nodeDists, distype=0):
             One of four types of measurements regarding the cartesian distance
             between nodes. See description above.
 
-    '''
+    """
 
     if src == trgt:
         return 0
@@ -205,10 +205,10 @@ def getCartDist(src, trgt, numNodes, nodeDists, distype=0):
 
 
 def formatNodeGroups(atmGrp, nodeAtmStrL=["CA"], grpAtmStrL=None):
-    '''Format code to facilitate the definition of node groups.
+    """Format code to facilitate the definition of node groups.
 
     This convenience function helps with the definition of node groups.
-    It will produce formated python code that the user can copy directly
+    It will produce formatted python code that the user can copy directly
     into a definition of atom groups.
 
     If the entire residue is to be represented by a single node, then
@@ -224,7 +224,7 @@ def formatNodeGroups(atmGrp, nodeAtmStrL=["CA"], grpAtmStrL=None):
     Returns:
         ---
 
-    '''
+    """
 
     if not (isinstance(nodeAtmStrL, list)):
         errStr = "ERROR: Expected a list argument for nodeAtmStr, but received {}."
@@ -273,41 +273,43 @@ def formatNodeGroups(atmGrp, nodeAtmStrL=["CA"], grpAtmStrL=None):
                 resName, nodeAtmStr, set(grpAtmStr)))
 
 
-def showNodeGrps(w, atmGrp, usrNodeGroups, nodeAtmSel=""):
-    '''Labels atoms in an NGLview instance to visualize node groups.
+def showNodeGrps(nvView, atmGrp, usrNodeGroups, nodeAtmSel=""):
+    """Labels atoms in an NGLview instance to visualize node groups.
 
     This convenience function helps with the definition of node groups.
     It will label atoms and nodes in a structure to help visualize the selection
     of atoms and nodes.
 
     Args:
-        w (nglview object): The initialized NGLview object.
-        atmGrp (MDanalysis atom group object): The atom group object containing
-        one residue. usrNodeGroups (dict): A dictionary of dictionaries with
-        node groups for a given residue. nodeAtmSel (str): A string selecting a
-        node atom so that only atoms in that group are labeled.
+        nvView (obj): The initialized NGLview object.
+        atmGrp (obj): The MDanalysis atom group object containing
+            one residue.
+        usrNodeGroups (dict): A dictionary of dictionaries with node groups for
+            a given residue.
+        nodeAtmSel (str): A string selecting a node atom so that only atoms in
+            that group are labeled.
 
     Returns:
         ---
 
-    '''
+    """
 
     selectedAtoms = set()
     for resName, nodeGrp in usrNodeGroups.items():
         for nodeAtm, grpAtms in nodeGrp.items():
             if (nodeAtmSel != "") and (nodeAtmSel != nodeAtm):
                 continue
-            selTxt = ["." + atmStr for atmStr in grpAtms if atmStr != nodeAtm]
-            selTxt = " ".join(selTxt)
+            selTxtL = ["." + atmStr for atmStr in grpAtms if atmStr != nodeAtm]
+            selTxt = " ".join(selTxtL)
 
-            w.add_representation(repr_type="label",
-                                 selection=selTxt,
-                                 labelType="atomname",
-                                 color="black")
-            w.add_representation(repr_type="label",
-                                 selection="."+nodeAtm,
-                                 labelType="atomname",
-                                 color="green")
+            nvView.add_representation(repr_type="label",
+                                      selection=selTxt,
+                                      labelType="atomname",
+                                      color="black")
+            nvView.add_representation(repr_type="label",
+                                      selection="."+nodeAtm,
+                                      labelType="atomname",
+                                      color="green")
 
             selectedAtoms.update(set(grpAtms))
 
@@ -315,10 +317,10 @@ def showNodeGrps(w, atmGrp, usrNodeGroups, nodeAtmSel=""):
     unSelectedAtoms = set(atmGrp.names) - selectedAtoms
 
     if len(unSelectedAtoms) and (nodeAtmSel == ""):
-        selTxt = ["." + atmStr for atmStr in unSelectedAtoms]
-        selTxt = " ".join(selTxt)
+        selTxtL = ["." + atmStr for atmStr in unSelectedAtoms]
+        selTxt = " ".join(selTxtL)
 
-        w.add_representation(repr_type="label",
-                             selection=selTxt,
-                             labelType="atomname",
-                             color="red")
+        nvView.add_representation(repr_type="label",
+                                  selection=selTxt,
+                                  labelType="atomname",
+                                  color="red")

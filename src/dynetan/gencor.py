@@ -4,6 +4,7 @@
 # @author: melomcr
 
 import numpy as np
+import numpy.typing as npt
 import cython
 
 # For generalized correlations
@@ -132,10 +133,10 @@ def calcMIRnumba2var(traj, numFrames, numDims, kNeighb, psi, phi):
 
     dxy = 0
 
-    diffX = np.zeros(numFrames, dtype=np.float64)
-    diffY = np.zeros(numFrames, dtype=np.float64)
-    tmpDiff = np.zeros(numFrames, dtype=np.float64)
-    sortIndx = np.zeros(numFrames, dtype=np.int64)
+    diffX: npt.NDArray[np.float64] = np.zeros(numFrames, dtype=np.float64)
+    diffY: npt.NDArray[np.float64] = np.zeros(numFrames, dtype=np.float64)
+    tmpDiff: npt.NDArray[np.float64] = np.zeros(numFrames, dtype=np.float64)
+    sortIndx: npt.NDArray[np.int64] = np.zeros(numFrames, dtype=np.int64)
 
     for step in range(numFrames):
         diffX.fill(0)

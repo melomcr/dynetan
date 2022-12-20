@@ -65,7 +65,7 @@ def prepTclViz(baseName, numWinds, ligandSegid="NULL", trgDir="./"):
     #
     # Docs: https://docs.python.org/3.7/library/importlib.html
     from importlib.resources import read_text as pkg_read_text
-    from importlib.resources import path as irpath
+    from importlib.resources import path as pkg_path
     import os
 
     from . import vizmod
@@ -73,7 +73,7 @@ def prepTclViz(baseName, numWinds, ligandSegid="NULL", trgDir="./"):
     tclFileName = "network_view_2.tcl"
 
     # Get path to auxiliary TCL files:
-    with irpath(vizmod, tclFileName) as pathToVizMod:
+    with pkg_path(vizmod, tclFileName) as pathToVizMod:
         pathToTcls = pathToVizMod.parent
 
     tclTemplateFile = pkg_read_text(vizmod, tclFileName)

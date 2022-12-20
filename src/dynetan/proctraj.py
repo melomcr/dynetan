@@ -45,6 +45,10 @@ import copy
 from timeit import default_timer as timer
 from datetime import timedelta
 
+from typing import Literal, Union
+dist_modes_literal = Literal["all", "capped"]
+dist_modes = ["all", "capped"]
+
 ##################################################
 ##################################################
 
@@ -76,15 +80,16 @@ class DNAproc:
 
         self.dnaData = None
 
-        self.contactPersistence = 0
-        self.cutoffDist = 0
-        self.numSampledFrames = 0
-        self.numWinds = 0
+        # Basic DNA parameters
+        self.contactPersistence = 0.75
+        self.cutoffDist         = 4.5
+        self.numSampledFrames   = 1
+        self.numWinds           = 1
 
         # Number of neighbours for Generalized Correlation estimate
         self.kNeighb = 7
 
-        self.h2oName            = None
+        self.solventNames       = None
         self.segIDs             = None
         self.customResNodes     = None
         self.usrNodeGroups      = None
@@ -136,7 +141,7 @@ class DNAproc:
 
         self.progBar = tqdm
 
-    def setNumWinds(self, numWinds):
+    def setNumWinds(self, num_winds: int = 1) -> None:
         """Set number of windows.
 
         This will determine the number of windows into which the
@@ -147,77 +152,100 @@ class DNAproc:
         extract each replica in a different window.
 
         Args:
-            numWinds (int) : Number of windows.
+            num_winds (int) : Number of windows.
         """
 
-        self.numWinds = numWinds
+        assert isinstance(num_winds, int), "Wrong argument type!"
+        assert num_winds > 0, "We need at least one window!"
+        self.numWinds = num_winds
 
-    def setNumSampledFrames(self, numSampledFrames):
+    def setNumSampledFrames(self, n_smpld_frms: int = 1) -> None:
         """Set number of frames to be sampled for solvent detection.
 
         This will determine how many frames will be sampled for solvent detection
         and for estimation of cartesian distance between node groups.
 
         Args:
-            numSampledFrames (int) : Number of frames.
+            n_smpld_frms (int) : Number of sampled frames.
         """
 
-        self.numSampledFrames = numSampledFrames
+        assert isinstance(n_smpld_frms, int), "Wrong argument type!"
+        assert n_smpld_frms > 0, "We need at least one frame!"
+        self.numSampledFrames = n_smpld_frms
 
-    def setCutoffDist(self, cutoffDist):
+    def setCutoffDist(self, cutoff_dist: float = 4.5) -> None:
         """Set cartesian distance cutoff for contact detection.
 
         For all atom simulations, assuming only heavy atoms (non-hydrogen atoms)
         were kept in the system, this number is usually set to 4.5 Angstroms.
 
         Args:
-            cutoffDist (float) : Cutoff distance for contact detection.
+            cutoff_dist (float) : Cutoff distance for contact detection.
 
         """
-        self.cutoffDist = cutoffDist
 
-    def setContactPersistence(self, contactPersistence):
+        assert isinstance(cutoff_dist, (int, float)), "Wrong argument type!"
+        assert cutoff_dist > 0, "We need at least one frame!"
+        self.cutoffDist = float(cutoff_dist)
+
+    def setContactPersistence(self, contact_persistence: float = 0.75) -> None:
         """Set contact persistence cutoff for contact detection.
 
         Args:
-            contactPersistence (float) : Ratio of total trajectory frames needed
-                to consider a pair of nodes to be in contact.
+            contact_persistence (float) : Ratio of total trajectory frames
+                needed to consider a pair of nodes to be in contact.
                 Usually set to 0.75 (75% of total trajectory).
 
         """
 
-        self.contactPersistence = contactPersistence
+        assert isinstance(contact_persistence, float), "Wrong argument type!"
+        assert isinstance(contact_persistence, float), "Wrong argument type!"
+        assert contact_persistence > 0.0, "Persistence needs to be in (0,1] interval!"
+        assert contact_persistence < 1.0, "Persistence needs to be in (0,1] interval!"
+        self.contactPersistence = contact_persistence
 
-    def seth2oName(self, h2oName):
+    def setSolvNames(self, solvent_names: list[str]) -> None:
         """Set name of solvent molecule residue.
 
         Args:
-            h2oName (list) : List of residue names used as solvent.
+            solvent_names (list) : List of residue names used as solvent.
 
         """
 
-        self.h2oName = h2oName
+        assert isinstance(solvent_names, list), "Wrong argument type!"
+        for solv in solvent_names:
+            assert isinstance(solv, str), "Wrong argument type!"
+        self.solventNames = solvent_names
 
-    def setSegIDs(self, segIDs):
+    def seth2oName(self, solvent_names: list[str]) -> None:
+        """Set name of solvent molecule residue.
+
+        Args:
+            solvent_names (list) : List of residue names used as solvent.
+
+        """
+        print("WARNING: This method will be deprecated. "
+              "The method setSolvNames will replace it.")
+        self.setSolvNames(solvent_names)
+
+    def setSegIDs(self, seg_ids: list[str]) -> None:
         """Set segment IDs for biomolecules ot be analyzed.
 
         Args:
-            segIDs (list) : List of Segment IDs to be included in network analysis.
+            seg_ids (list) : List of Segment IDs to be included in network analysis.
 
         """
 
-        self.segIDs = segIDs
+        assert isinstance(seg_ids, list), "Wrong argument type!"
+        for idstr in seg_ids:
+            assert isinstance(idstr, str), "Wrong argument type!"
+        self.segIDs = seg_ids
 
-    def setCustomResNodes(self, customResNodes):
+    def setCustomResNodes(self, customResNodes: dict) -> None:
         """Set atoms that will represent nodes in user defined residues.
 
-        Network Analysis will create one network node per standard amino acid
-        residue (in the alpha carbon). For other residues, the user must specify
-        atom(s) that will represent a node.
-        This function is used to define which residue atoms will be used to
-        create network nodes.
-
-        .. note:: See also :py:func:`setUsrNodeGroups`.
+        .. note:: THIS METHOD HAS BEEN DEPRECATED. It has been fully replaced
+            by :py:func:`setUsrNodeGroups`.
 
         Args:
             customResNodes (dictionary) : Dictionary mapping residue names with
@@ -225,9 +253,9 @@ class DNAproc:
 
         """
         print("### The method `setCustomResNodes` is now deprecated.")
-        # self.customResNodes = customResNodes
+        raise DeprecationWarning
 
-    def setUsrNodeGroups(self, usrNodeGroups):
+    def setNodeGroups(self, node_groups: dict[str, dict[str, set[str]]]) -> None:
         """Set atoms that will represent node groups in user-defined residues.
 
         Network Analysis will create one network node per standard amino acid
@@ -236,18 +264,35 @@ class DNAproc:
         This function is used to define the heavy atoms that compose each node
         group for user-defined nodes.
 
-        .. note:: See also :py:func:`setCustomResNodes`.
-
         Args:
-            usrNodeGroups (dictionary) : Nested dictionary mapping residue names
+            node_groups (dictionary) : Nested dictionary mapping residue names
                 with atom names that will represent network nodes, and sets of
                 heavy atoms used to define node groups.
 
         """
 
-        self.usrNodeGroups = usrNodeGroups
+        assert isinstance(node_groups, dict), "Wrong argument type!"
+        for resstr, nodedict in node_groups.items():
+            assert isinstance(resstr, str), "Wrong argument type!"
+            assert isinstance(nodedict, dict), "Wrong argument type!"
 
-    def setDistanceMode(self, mode="all"):
+            for nodestr, nodeatms in nodedict.items():
+                assert isinstance(nodestr, str), "Wrong argument type!"
+                assert isinstance(nodeatms, set), "Wrong argument type!"
+
+                for atmstr in nodeatms:
+                    assert isinstance(atmstr, str), "Wrong argument type!"
+
+        self.usrNodeGroups = node_groups
+
+    def setUsrNodeGroups(self, node_groups: dict[str, dict[str, set[str]]]) -> None:
+        print("WARNING: This method will be deprecated. "
+              "The method setNodeGroups will replace it.")
+
+        self.setNodeGroups(node_groups)
+        raise DeprecationWarning
+
+    def setDistanceMode(self, mode: dist_modes_literal = "all") -> None:
         """Set the distance calculation method to find nodes in contact.
 
         The supported options are:
@@ -264,25 +309,23 @@ class DNAproc:
         .. note:: See also :py:func:`setCutoffDist`.
 
         Args:
-            mode (str) : Distance calculation mode. Options are "all" or "capped".
+            mode (str) : Distance calculation mode.
 
         """
+
+        assert mode in dist_modes, f"Only allowed modes are {dist_modes}"
 
         if mode == "all":
             self.distanceMode = ct.MODE_ALL
         elif mode == "capped":
             self.distanceMode = ct.MODE_CAPPED
-        else:
-            print("ERROR: Mode \"{}\" not recognized.".format(mode))
-            print("Using default mode \"all\"")
-            self.distanceMode = ct.MODE_ALL
 
-    def getU(self):
+    def getU(self) -> None:
         """Return MDAnalysis universe object.
         """
         return self.workU
 
-    def saveData(self, fileNameRoot="dnaData"):
+    def saveData(self, fileNameRoot="dnaData") -> None:
         """Save all network analysis data to file.
 
         This function automates the creation of a
@@ -324,7 +367,7 @@ class DNAproc:
 
         self.dnaData.saveToFile(fileNameRoot)
 
-    def saveReducedTraj(self, fileNameRoot="dnaData", stride=1):
+    def saveReducedTraj(self, fileNameRoot="dnaData", stride=1) -> None:
         """Save a reduced trajectory to file.
 
         This function automates the creation of a reduced DCD trajectory file
@@ -354,11 +397,20 @@ class DNAproc:
                         n_atoms=self.workU.atoms.n_atoms) as PDB:
             PDB.write(self.workU.atoms)
 
-    def loadSystem(self, psfFile, dcdFiles):
-        """Loads PSF and DCD files to an MDAnalysis universe.
+    def loadSystem(self, str_fn: str, traj_fns: Union[str, list[str]]) -> None:
+        """
+        Loads Structure and Trajectory files to an MDAnalysis universe.
+
+        Args:
+            str_fn (str | Path) : Path to structure file, such as a PSF, PDB,
+                Gro, or other file formats accepted by MDAnalysis.
+            traj_fns (str | Path | List(str) ) : Path to one or more trajectory
+                files. MDAnalysis will automatically concatenate trajectories if
+                multiple files are passed.
 
         """
-        self.workU = mda.Universe(psfFile, dcdFiles)
+
+        self.workU = mda.Universe(str_fn, traj_fns)
 
     def checkSystem(self):
         """Performs a series of sanity checks.
@@ -487,7 +539,7 @@ class DNAproc:
             else:
                 if self.notSelSegidSet:
                     selStr = "segid " + " ".join(self.notSelSegidSet)
-                    selStr += " and not resname " + " ".join(self.h2oName)
+                    selStr += " and not resname " + " ".join(self.solventNames)
                     selStr += " and not (name H* or name [123]H*)"
                     checkSet = self.workU.select_atoms(selStr)
                 else:
