@@ -2,12 +2,12 @@ import os.path
 
 import pytest
 
-import dynetan as dna
 from dynetan import proctraj as dnapt
 from dynetan import contact as ct
 
 from .test_package import test_data_dir
 from .test_package import psf_fn_omp, dcd_fn_omp
+
 
 @pytest.fixture
 def dnap():
@@ -139,4 +139,3 @@ class TestProcTraj:
         struc_fn = os.path.join(test_data_dir, str_fn)
         traj_fn = os.path.join(test_data_dir, traj_fns)
         dnap.loadSystem(struc_fn, traj_fn)
-

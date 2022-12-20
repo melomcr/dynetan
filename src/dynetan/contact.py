@@ -5,6 +5,7 @@
 
 
 import numpy as np
+import numpy.typing as npt
 
 from MDAnalysis.analysis            import distances            as mdadist
 from MDAnalysis.lib                 import distances            as mdalibdist
@@ -15,6 +16,8 @@ import cython
 # For timing and benchmarks
 from timeit import default_timer as timer
 from datetime import timedelta
+
+from typing import Any
 
 MODE_ALL    = 0
 MODE_CAPPED = 1
@@ -77,10 +80,10 @@ def atmToNodeDist(numNodes, nAtoms, tmpDists, atomToNode,
 
     """
 
-    maxVal = np.finfo(np.float64).max
+    maxVal: Any = np.finfo(np.float64).max
 
     # Initialize with maximum possible value of a float64
-    tmpDistsAtms = np.full(nAtoms, maxVal, dtype=np.float64)
+    tmpDistsAtms: npt.NDArray[np.float64] = np.full(nAtoms, maxVal, dtype=np.float64)
 
     # We iterate until we have only one node left
     for i in range(numNodes - 1):
@@ -172,7 +175,8 @@ def calcDistances(selection, numNodes, nAtoms, atomToNode,  cutoffDist,
 
     if distMode == MODE_ALL:
 
-        tmpDists = np.zeros(int(nAtoms*(nAtoms-1)/2), dtype=np.float64)
+        tmpDists: npt.NDArray[np.float64] = \
+            np.zeros(int(nAtoms*(nAtoms-1)/2), dtype=np.float64)
 
         if verbose:
             end = timer()

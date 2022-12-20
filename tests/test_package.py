@@ -21,6 +21,7 @@ def test_data_dir():
 
     return path_to_test_data
 
+
 @pytest.fixture
 def dnap_omp_loaded(test_data_dir):
     psfFile = os.path.join(test_data_dir, psf_fn_omp)
@@ -32,6 +33,7 @@ def dnap_omp_loaded(test_data_dir):
     dnap_omp.loadSystem(psfFile, dcdFiles)
 
     return dnap_omp
+
 
 @pytest.fixture(scope="session")
 def tmp_dna_test_dir(tmp_path_factory):
