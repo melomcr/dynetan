@@ -2,6 +2,7 @@ import os.path
 
 import pytest
 
+import dynetan as dna
 from dynetan import proctraj as dnapt
 from dynetan import contact as ct
 
@@ -23,6 +24,24 @@ def dnap():
 
 
 class TestProcTraj:
+
+    def test_version(self):
+
+        assert hasattr(dna, "__version__")
+
+        assert dna.version.__version__ == dna.__version__
+
+    def test_prog_bar(self):
+        from tqdm.notebook import tqdm_notebook as tqdm_nb
+        from tqdm import tqdm as tqdm_cli
+
+        dnap_progBar = dnapt.DNAproc(notebookMode=True)
+        assert dnap_progBar.progBar == tqdm_nb
+        assert dnap_progBar.asciiMode is False
+
+        dnap_progBar = dnapt.DNAproc(notebookMode=False)
+        assert dnap_progBar.progBar == tqdm_cli
+        assert dnap_progBar.asciiMode is True
 
     @pytest.mark.parametrize("num_winds", [
         1,
