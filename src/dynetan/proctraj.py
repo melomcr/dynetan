@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import MDAnalysis
 
 # @author: melomcr
 
@@ -45,7 +46,7 @@ import copy
 from timeit import default_timer as timer
 from datetime import timedelta
 
-from typing import Literal, Union
+from typing import Literal, Union, Any
 dist_modes_literal = Literal["all", "capped"]
 dist_modes = ["all", "capped"]
 
@@ -78,7 +79,7 @@ class DNAproc:
 
         """
 
-        self.dnaData = None
+        self.dnaData            = ds.DNAdata()
 
         # Basic DNA parameters
         self.contactPersistence = 0.75
@@ -89,23 +90,21 @@ class DNAproc:
         # Number of neighbours for Generalized Correlation estimate
         self.kNeighb = 7
 
-        self.solventNames       = None
-        self.segIDs             = None
-        self.customResNodes     = None
-        self.usrNodeGroups      = None
+        self.solventNames: list[str]    = []
+        self.segIDs: list[str]          = []
+
+        self.usrNodeGroups: dict[str, dict[str, set[str]]]  = {}
+        self.resNodeGroups: dict[str, dict[str, set[str]]]  = {}
 
         self.allResNamesSet     = None
         self.selResNamesSet     = None
         self.notSelResNamesSet  = None
         self.notSelSegidSet     = None
 
-        self.workU          = None
+        self.workU: MDAnalysis.Universe = None
 
-        self.selRes         = None
-
-        self.nodesAtmSel    = None
+        self.nodesAtmSel: MDAnalysis.core.groups.AtomGroup      = None
         self.atomToNode     = None
-        self.resNodeGroups  = None
 
         self.numNodes       = None
 
@@ -127,12 +126,12 @@ class DNAproc:
         self.interNodePairs         = None
         self.contactNodesInter      = None
 
-        self.distanceMode           = ct.MODE_ALL
+        self.distanceMode: int      = ct.MODE_ALL
 
-        self.notebookMode           = notebookMode
+        self.notebookMode: bool     = notebookMode
 
         if self.notebookMode:
-            from tqdm.notebook import tqdm
+            from tqdm.notebook import tqdm_notebook as tqdm
             self.asciiMode = False
 
         else:
@@ -163,10 +162,10 @@ class DNAproc:
         """Set number of frames to be sampled for solvent detection.
 
         This will determine how many frames will be sampled for solvent detection
-        and for estimation of cartesian distance between node groups.
+        per window, and for estimation of cartesian distance between node groups.
 
         Args:
-            n_smpld_frms (int) : Number of sampled frames.
+            n_smpld_frms (int) : Number of sampled frames per window.
         """
 
         assert isinstance(n_smpld_frms, int), "Wrong argument type!"
@@ -241,7 +240,7 @@ class DNAproc:
             assert isinstance(idstr, str), "Wrong argument type!"
         self.segIDs = seg_ids
 
-    def setCustomResNodes(self, customResNodes: dict) -> None:
+    def setCustomResNodes(self, customResNodes: Any) -> None:
         """Set atoms that will represent nodes in user defined residues.
 
         .. note:: THIS METHOD HAS BEEN DEPRECATED. It has been fully replaced
@@ -320,7 +319,7 @@ class DNAproc:
         elif mode == "capped":
             self.distanceMode = ct.MODE_CAPPED
 
-    def getU(self) -> None:
+    def getU(self) -> Any:
         """Return MDAnalysis universe object.
         """
         return self.workU
@@ -382,7 +381,7 @@ class DNAproc:
 
         dcdVizFile = fileNameRoot + "_reducedTraj.dcd"
 
-        totalFrames = int(len(self.workU.trajectory[::stride]))
+        totalFrames: int = int(len(self.workU.trajectory[::stride]))
 
         with mda.Writer(dcdVizFile, self.workU.atoms.n_atoms) as W:
             for ts in self.progBar(self.workU.trajectory[::stride], desc="Frames",
@@ -412,7 +411,7 @@ class DNAproc:
 
         self.workU = mda.Universe(str_fn, traj_fns)
 
-    def checkSystem(self):
+    def checkSystem(self) -> None:
         """Performs a series of sanity checks.
 
         This function checks if the user-defined data and loaded simulation data
@@ -422,14 +421,11 @@ class DNAproc:
 
         """
 
-        if not self.workU:
-            print("ERROR! This function can only be called after loading a system. "
-                  "Check your universe!")
-            return -1
+        assert self.workU is not None, "ERROR! This function can only be called " \
+                                       "after loading a system. Check your universe!"
 
         allResNamesSet = set()
         selResNamesSet = set()
-        notSelResNamesSet = set()
         notSelSegidSet = set()
 
         print(Fore.BLUE + "Residue verification:\n" + Fore.RESET)
@@ -469,9 +465,9 @@ class DNAproc:
         print(allResNamesSet)
         print()
 
-        self.selRes = self.workU.select_atoms("segid " + " ".join(self.segIDs))
+        selRes = self.workU.select_atoms("segid " + " ".join(self.segIDs))
         print("---> " + Fore.GREEN +
-              "{0} total residues".format(len(self.selRes.residues))
+              "{0} total residues".format(len(selRes.residues))
               + Fore.RESET + " were selected for network analysis.")
         print()
 
@@ -492,7 +488,10 @@ class DNAproc:
         self.notSelResNamesSet = notSelResNamesSet
         self.notSelSegidSet = notSelSegidSet
 
-    def selectSystem(self, withSolvent=False, userSelStr=None, verbose=0):
+    def selectSystem(self,
+                     with_solvent: bool = False,
+                     input_sel_str: str = "",
+                     verbose: int = 0) -> None:
         """Selects all atoms used to define node groups.
 
         Creates a final selection of atoms based on the user-defined residues and
@@ -509,24 +508,40 @@ class DNAproc:
 
         Args:
 
-            withSolvent (bool): Controls if the function will try to automatically
+            with_solvent (bool): Controls if the function will try to automatically
                 detect solvent molecules.
 
-            userSelStr (str): Uses a user-defined selection for the system. This
+            input_sel_str (str): Uses a user-defined selection for the system. This
                 disables automatic detection of solvent/ions/lipids and other
                 residues that may have transient contact with the target system.
+
+            verbose (int): Controls the verbosity of output.
+
         """
 
-        if userSelStr:
+        assert isinstance(with_solvent, bool)
+        assert isinstance(input_sel_str, str)
+        assert isinstance(verbose, int)
+
+        if (not with_solvent) and (not self.solventNames):
+            print("ERROR: Automatic removal of all solvent molecules can only "
+                  "happen if we have a list of solvent residue names, but no "
+                  "solvent names were provided.")
+            print("Aborting function call.")
+            return
+
+        if input_sel_str.strip():
             print("Using user-defined selection string:")
-            print(userSelStr)
+            print(input_sel_str)
             print("\nATTENTION: automatic identification of "
                   "solvent and ions is DISABLED.")
 
-            initialSel = self.workU.select_atoms(userSelStr)
+            initialSel = self.workU.select_atoms(input_sel_str)
 
         else:
-            if withSolvent:
+            if with_solvent:
+                # For automatic solvent detection, we use the segIDs that were
+                # not selected by the user as targets for network analysis.
                 if self.notSelSegidSet:
                     selStr = "(not (name H* or name [123]H*)) "
                     selStr += "and segid " + " ".join(self.notSelSegidSet)
@@ -537,6 +552,10 @@ class DNAproc:
                           "of structural solvent molecules or lipids.")
                     checkSet = None
             else:
+                # Without solvent detection, the new selection removes all solvent
+                # molecules from the selection but keeps other segments that may
+                # ions or ligands that may be structural and necessary for the
+                # analysis.
                 if self.notSelSegidSet:
                     selStr = "segid " + " ".join(self.notSelSegidSet)
                     selStr += " and not resname " + " ".join(self.solventNames)
@@ -556,12 +575,13 @@ class DNAproc:
                 print("Checking {0} frames (striding {1})...".format(
                     numAutoFrames, stride))
 
-                searchSelRes = self.selRes.select_atoms("not (name H* or name [123]H*)")
+                selRes = self.workU.select_atoms("segid " + " ".join(self.segIDs))
+                searchSelRes = selRes.select_atoms("not (name H* or name [123]H*)")
 
                 # Keeps a set with all residues that were close to the interaction
                 #  region in ALL sampled timesteps
 
-                resIndexDict = defaultdict(int)
+                resIndexDict: dict[int, int] = defaultdict(int)
                 for ts in self.progBar(
                         self.workU.trajectory[:numAutoFrames*stride:stride],
                         desc="Frames", total=numAutoFrames, ascii=self.asciiMode):
@@ -585,13 +605,15 @@ class DNAproc:
                 newResStr = "{} extra residues will be added to the system."
                 print(newResStr.format(len(checkSetMin.resnames)))
 
-                if verbose:
+                if verbose > 0:
                     print("New residue types included in the system selection:")
                     for resname in set(checkSetMin.resnames):
                         print(resname)
-                    print("New residues included in the system selection:")
-                    for res in set(checkSetMin.residues):
-                        print(res)
+
+                    if verbose > 1:
+                        print("New residues included in the system selection:")
+                        for res in set(checkSetMin.residues):
+                            print(res)
 
                 selStr = "segid " + " ".join(self.segIDs)
                 initialSel = self.workU.select_atoms(selStr)
@@ -602,10 +624,9 @@ class DNAproc:
                 # In case we do not have any residues in other segments to
                 # check for contacts, we take all user-selected segments and
                 # create the system for analysis.
-                # TODO (unit-test the system selection methods)
                 selStr = "segid " + " ".join(self.segIDs)
                 initialSel = self.workU.select_atoms(selStr)
-                initialSel = self.workU.select_atoms("not (name H* or name [123]H*)")
+                initialSel = initialSel.select_atoms("not (name H* or name [123]H*)")
 
         print("The initial universe had {} atoms.".format(len(self.workU.atoms)))
 
@@ -630,7 +651,9 @@ class DNAproc:
 
         self.workU.load_new(resObj, format=mdaMemRead)
 
-    def prepareNetwork(self, verbose=0):
+    # TODO: reduce complexity - Flake8 marks it at 20
+    # We can temporarily suppress this error with: # NOQA: C901
+    def prepareNetwork(self, verbose: int = 0):
         """Prepare network representation of the system.
 
         Checks if we know how to treat all types of residues in the final system
@@ -708,11 +731,11 @@ class DNAproc:
         # for atoms that represent nodes.
 
         # Builds list of selection statements
-        selStr = ["(resname {0} and name {1})".format(k, " ".join(v.keys()))
+        selStrL = ["(resname {0} and name {1})".format(k, " ".join(v.keys()))
                   for k, v in self.resNodeGroups.items()]
 
         # Combines all statements into one selection string
-        selStr = " or ".join(selStr)
+        selStr = " or ".join(selStrL)
 
         if verbose:
             print("Selection string for atoms that represent network nodes:")
@@ -761,7 +784,7 @@ class DNAproc:
         #   but nucleotides and other residues may be different.
 
         nodeGroupRanges = {}
-        nodeGroupIndices = []
+        nodeGroupIndicesL = []
 
         for x in np.unique(self.atomToNode):
             data = np.where(self.atomToNode == x)[0]
@@ -769,9 +792,9 @@ class DNAproc:
             ranges = []
             for k, g in groupby(enumerate(data), lambda x: x[0]-x[1]):
                 # Creates an iterable from the group object.
-                group = (map(itemgetter(1), g))
+                groupMap = (map(itemgetter(1), g))
                 # Creates a list using the iterable
-                group = list(map(int, group))
+                group = list(map(int, groupMap))
                 # Appends to the list of ranges the first and last items in each range.
                 ranges.append((group[0], group[-1]))
 
@@ -782,9 +805,9 @@ class DNAproc:
                    for rang in nodeGroupRanges[x]]
 
             # Combine lists into one list
-            nodeGroupIndices.append(list(chain.from_iterable(tmp)))
+            nodeGroupIndicesL.append(list(chain.from_iterable(tmp)))
 
-        nodeGroupIndices = np.asarray(nodeGroupIndices, dtype=object)
+        nodeGroupIndices = np.asarray(nodeGroupIndicesL, dtype=object)
 
         self.nodeGroupIndicesNP = np.asarray(
             list(chain.from_iterable(nodeGroupIndices)),
@@ -1000,6 +1023,7 @@ class DNAproc:
             pairPc = round((len(pairs) / totalPairs) * 100, 1)
             print("(That's {0}%, by the way)".format(pairPc))
 
+    # TODO: reduce complexity - Flake8 marks it at 20
     def filterContacts(self, notSameRes=True, notConsecutiveRes=False,
                        removeIsolatedNodes=True, verbose=0):
         """Filters network contacts over the system.
@@ -1299,6 +1323,7 @@ class DNAproc:
                             mat[nodeIndx, trgtIndx] = 0
                             mat[trgtIndx, nodeIndx] = 0
 
+    # TODO: reduce complexity - Flake8 marks it at 27
     def calcCor(self, ncores=1, forceCalc=False, verbose=0):
         """Main interface for correlation calculation.
 

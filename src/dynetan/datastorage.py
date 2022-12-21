@@ -3,6 +3,7 @@
 # @author: melomcr
 
 import numpy as np
+import numpy.typing as npt
 import pickle
 import h5py
 
@@ -34,7 +35,7 @@ class DNAdata:
 
         self.atomToNode         = None
 
-        self.nodesIxArray       = None
+        self.nodesIxArray: npt.NDArray[np.float64]      = None
 
         self.numNodes           = None
 
