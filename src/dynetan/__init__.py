@@ -6,9 +6,9 @@ from . import proctraj
 from . import toolkit
 from . import viz
 
-from .version import __version__
-from .datastorage import DNAdata
-from .proctraj import DNAproc
+from .version import __version__    # NOQA: F401
+from .datastorage import DNAdata    # NOQA: F401
+from .proctraj import DNAproc       # NOQA: F401
 
 __all__ = [
     "contact",
