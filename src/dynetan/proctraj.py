@@ -26,13 +26,13 @@ import community
 from networkx import eigenvector_centrality_numpy as nxeigencentrality
 from networkx import edge_betweenness_centrality as nxbetweenness
 from networkx.algorithms.shortest_paths.dense import \
-     floyd_warshall_predecessor_and_distance as nxFWPD
+    floyd_warshall_predecessor_and_distance as nxFWPD
 
-from MDAnalysis.lib.NeighborSearch  import AtomNeighborSearch   as mdaANS
-from MDAnalysis.coordinates.memory  import MemoryReader         as mdaMemRead
-from MDAnalysis.analysis.base       import AnalysisFromFunction as mdaAFF
+from MDAnalysis.lib.NeighborSearch import AtomNeighborSearch as mdaANS
+from MDAnalysis.coordinates.memory import MemoryReader as mdaMemRead
+from MDAnalysis.analysis.base import AnalysisFromFunction as mdaAFF
 # from MDAnalysis.analysis            import distances            as mdadist
-from MDAnalysis.analysis.distances  import between              as mdaB
+from MDAnalysis.analysis.distances import between as mdaB
 
 from colorama import Fore
 from operator import itemgetter
@@ -47,11 +47,18 @@ from timeit import default_timer as timer
 from datetime import timedelta
 
 from typing import Literal, Union, Any
+
 dist_modes_literal = Literal["all", "capped"]
 dist_modes = ["all", "capped"]
 
+
 ##################################################
 ##################################################
+
+
+def is_proteic(resname):
+    mda_known_prot_res = mda.core.selection.ProteinSelection.prot_res
+    return resname in mda_known_prot_res
 
 
 class DNAproc:
@@ -79,56 +86,56 @@ class DNAproc:
 
         """
 
-        self.dnaData            = ds.DNAdata()
+        self.dnaData = ds.DNAdata()
 
         # Basic DNA parameters
         self.contactPersistence = 0.75
-        self.cutoffDist         = 4.5
-        self.numSampledFrames   = 1
-        self.numWinds           = 1
+        self.cutoffDist = 4.5
+        self.numSampledFrames = 1
+        self.numWinds = 1
 
         # Number of neighbours for Generalized Correlation estimate
         self.kNeighb = 7
 
-        self.solventNames: list[str]    = []
-        self.segIDs: list[str]          = []
+        self.solventNames: list[str] = []
+        self.segIDs: list[str] = []
 
-        self.usrNodeGroups: dict[str, dict[str, set[str]]]  = {}
-        self.resNodeGroups: dict[str, dict[str, set[str]]]  = {}
+        self.usrNodeGroups: dict[str, dict[str, set[str]]] = {}
+        self.resNodeGroups: dict[str, dict[str, set[str]]] = {}
 
-        self.allResNamesSet     = None
-        self.selResNamesSet     = None
-        self.notSelResNamesSet  = None
-        self.notSelSegidSet     = None
+        self.allResNamesSet = None
+        self.selResNamesSet = None
+        self.notSelResNamesSet = None
+        self.notSelSegidSet = None
 
         self.workU: MDAnalysis.Universe = None
 
-        self.nodesAtmSel: MDAnalysis.core.groups.AtomGroup      = None
-        self.atomToNode     = None
+        self.nodesAtmSel: MDAnalysis.core.groups.AtomGroup = None
+        self.atomToNode = None
 
-        self.numNodes       = None
+        self.numNodes = None
 
-        self.nodeGroupIndicesNP     = None
-        self.nodeGroupIndicesNPAux  = None
-        self.contactMatAll          = None
-        self.contactMat             = None
-        self.corrMatAll             = None
+        self.nodeGroupIndicesNP = None
+        self.nodeGroupIndicesNPAux = None
+        self.contactMatAll = None
+        self.contactMat = None
+        self.corrMatAll = None
 
-        self.nodeDists              = None
-        self.nxGraphs               = None
-        self.distsAll               = None
-        self.preds                  = None
-        self.maxDist                = None
-        self.maxDirectDist          = None
-        self.btws                   = None
-        self.nodesComm              = None
+        self.nodeDists = None
+        self.nxGraphs = None
+        self.distsAll = None
+        self.preds = None
+        self.maxDist = None
+        self.maxDirectDist = None
+        self.btws = None
+        self.nodesComm = None
 
-        self.interNodePairs         = None
-        self.contactNodesInter      = None
+        self.interNodePairs = None
+        self.contactNodesInter = None
 
-        self.distanceMode: int      = ct.MODE_ALL
+        self.distanceMode: int = ct.MODE_ALL
 
-        self.notebookMode: bool     = notebookMode
+        self.notebookMode: bool = notebookMode
 
         if self.notebookMode:
             from tqdm.notebook import tqdm_notebook as tqdm
@@ -339,27 +346,27 @@ class DNAproc:
 
         self.dnaData = ds.DNAdata()
 
-        self.dnaData.nodesIxArray   = self.nodesAtmSel.ix_array
-        self.dnaData.numNodes       = self.numNodes
-        self.dnaData.atomToNode     = self.atomToNode
-        self.dnaData.contactMat     = self.contactMat
+        self.dnaData.nodesIxArray = self.nodesAtmSel.ix_array
+        self.dnaData.numNodes = self.numNodes
+        self.dnaData.atomToNode = self.atomToNode
+        self.dnaData.contactMat = self.contactMat
 
-        self.dnaData.corrMatAll     = self.corrMatAll
+        self.dnaData.corrMatAll = self.corrMatAll
 
         # Cartesian distances between nodes.
         if self.nodeDists is not None:
-            self.dnaData.nodeDists      = self.nodeDists
+            self.dnaData.nodeDists = self.nodeDists
 
-        self.dnaData.distsAll       = self.distsAll
-        self.dnaData.preds          = self.preds
-        self.dnaData.maxDist        = self.maxDist
-        self.dnaData.maxDirectDist  = self.maxDirectDist
-        self.dnaData.btws           = self.btws
-        self.dnaData.nodesComm      = self.nodesComm
-        self.dnaData.nxGraphs       = self.nxGraphs
+        self.dnaData.distsAll = self.distsAll
+        self.dnaData.preds = self.preds
+        self.dnaData.maxDist = self.maxDist
+        self.dnaData.maxDirectDist = self.maxDirectDist
+        self.dnaData.btws = self.btws
+        self.dnaData.nodesComm = self.nodesComm
+        self.dnaData.nxGraphs = self.nxGraphs
 
         if self.interNodePairs is not None:
-            self.dnaData.interNodePairs    = self.interNodePairs
+            self.dnaData.interNodePairs = self.interNodePairs
 
         if self.contactNodesInter is not None:
             self.dnaData.contactNodesInter = self.contactNodesInter
@@ -573,9 +580,9 @@ class DNAproc:
                     checkSet = None
 
             if checkSet:
-                numAutoFrames: int = self.numSampledFrames*self.numWinds
+                numAutoFrames: int = self.numSampledFrames * self.numWinds
 
-                stride = int(np.floor(len(self.workU.trajectory)/numAutoFrames))
+                stride = int(np.floor(len(self.workU.trajectory) / numAutoFrames))
 
                 print("Checking {0} frames (striding {1})...".format(
                     numAutoFrames, stride))
@@ -588,7 +595,7 @@ class DNAproc:
 
                 resIndexDict: dict[int, int] = defaultdict(int)
                 for ts in self.progBar(
-                        self.workU.trajectory[:numAutoFrames*stride:stride],
+                        self.workU.trajectory[:numAutoFrames * stride:stride],
                         desc="Frames", total=numAutoFrames, ascii=self.asciiMode):
 
                     # Creates neighbor search object. We pass the atoms we want to check,
@@ -603,7 +610,7 @@ class DNAproc:
                         resIndexDict[indx] += 1
 
                 resIndxList = [k for k, v in resIndexDict.items()
-                               if v > int(numAutoFrames*self.contactPersistence)]
+                               if v > int(numAutoFrames * self.contactPersistence)]
 
                 checkSetMin = self.workU.residues[np.asarray(resIndxList, dtype=int)]
 
@@ -656,9 +663,101 @@ class DNAproc:
 
         self.workU.load_new(resObj, format=mdaMemRead)
 
-    # TODO: reduce complexity - Flake8 marks it at 20
-    # We can temporarily suppress this error with: # NOQA: C901
-    def prepareNetwork(self, verbose: int = 0):
+    def prep_node_groups(self, autocomp_groups: bool = True):
+        """Prepare node groups and check system for unknown residues
+
+        This function will load the user-defined node groups into this object
+        and will create node groups from standard proteic residues and trivial
+        single-atom residues such as ions.
+
+        Args:
+            autocomp_groups (bool): Method will automatically add atoms from residues
+                with defined node groups, as long as the atom is bound to another
+                atom included in a node group. This is intended to facilitate the
+                inclusion of hydrogen atoms to node groups without hard coded user
+                definitions.
+
+        Returns:
+            none
+
+        """
+
+        assert isinstance(autocomp_groups, bool)
+
+        # Initialize the global node group dictionary
+        self.resNodeGroups = {}
+
+        # Include user-defined node groups
+        self.resNodeGroups.update(self.usrNodeGroups)
+
+        # Iterate over all residues in the system to check node groups
+        for res in self.workU.residues:
+
+            if res.resname in self.resNodeGroups.keys():
+
+                if is_proteic(res.resname) and autocomp_groups:
+                    # Update known protein residues to include hydrogen atoms
+                    self.resNodeGroups[res.resname]["CA"].update(set(res.atoms.names))
+                elif autocomp_groups:
+                    # Adds hydrogen atoms to a groups of atoms in every residue.
+                    for atm in res.atoms:
+                        # Assume it is a hydrogen and bind it to the group of the atom
+                        # it is connected to.
+                        atmSet = set.union(*self.resNodeGroups[res.resname].values())
+                        if atm.name not in atmSet:
+                            boundTo = atm.bonded_atoms[0].name
+
+                            # If there are multiple sub-groups in the same residue
+                            # the atom will be added to the same group that its
+                            # bound atom belongs to.
+                            for key, val in self.resNodeGroups[res.resname].items():
+                                if boundTo in val:
+                                    self.resNodeGroups[res.resname][key].add(atm.name)
+            else:
+                # Verifies if there are unknown residues
+
+                if is_proteic(res.resname):
+                    # Automatically create node groups for standard protein residues.
+                    # This will include hydrogen atoms, if they are still in the system.
+                    self.resNodeGroups[res.resname] = {}
+                    self.resNodeGroups[res.resname]["CA"] = set(res.atoms.names)
+
+                elif len(res.atoms) == 1:
+                    # For residues that are not proteic, and that have one atom (IONS)
+                    # Creates the "node group" and the atom name for the node.
+                    self.resNodeGroups[res.resname] = {}
+                    resAtmName = res.atoms.names[0]
+                    setAtmNames = set(res.atoms.names)
+                    self.resNodeGroups[res.resname][resAtmName] = setAtmNames
+
+                elif len(res.atoms) > 1:
+                    print((Fore.RED + "Unknown residue type" + Fore.RESET +
+                           " {0}, from segment {1}").format(res.resname, res.segid))
+
+                    error_str = f"Residue {res.resname} does not have a defined " \
+                                f"node group!"
+                    raise Exception(error_str)
+
+            # Sanity check
+            # Verify if there are node atoms in the system that are NOT
+            # accounted for in node groups.
+            setResNodes = set(self.resNodeGroups[res.resname].keys())
+            kMissing = setResNodes.difference(set(res.atoms.names))
+            if kMissing:
+                errorStr = (Fore.RED + "ERROR!" + Fore.RESET +
+                            " residue {0} segid {1} resid {2} does not contain "
+                            "all node atoms. Missing atoms: {3}"
+                            ).format(res.resname,
+                                     res.segid,
+                                     res.resid,
+                                     " ".join(kMissing))
+                print(errorStr)
+
+                raise Exception(errorStr)
+
+    def prepareNetwork(self,
+                       verbose: int = 0,
+                       autocomp_groups: bool = True):
         """Prepare network representation of the system.
 
         Checks if we know how to treat all types of residues in the final system
@@ -679,65 +778,17 @@ class DNAproc:
         from itertools import chain
         from operator import itemgetter
 
-        # Dictionary associating residue type and node-atom to set of
-        #   atom names associated with that node.
-        self.resNodeGroups = {}
+        assert isinstance(autocomp_groups, bool)
+        assert isinstance(verbose, int)
 
-        self.resNodeGroups.update(self.usrNodeGroups)
-
-        # Creates node groups for protein atoms.
-        for res in self.workU.select_atoms("protein").residues:
-            if res.resname not in self.resNodeGroups.keys():
-                # Creates the group of atoms in the group represented by this node.
-                self.resNodeGroups[res.resname] = {}
-                self.resNodeGroups[res.resname]["CA"] = set(res.atoms.names)
-            else:
-                self.resNodeGroups[res.resname]["CA"].update(set(res.atoms.names))
-
-        for res in self.workU.select_atoms("not protein").residues:
-            # Verifies if there are unkown residues
-            if len(res.atoms) > 1 and res.resname not in self.resNodeGroups.keys():
-                print((Fore.RED + "Unknown residue type" + Fore.RESET +
-                       " {0}, from segment {1}").format(res.resname, res.segid))
-
-            # For residues that are not proteic, and that have one atom (IONS)
-            # Creates the "node group" and the atom name for the node.
-            if len(res.atoms) == 1:
-                self.resNodeGroups[res.resname] = {}
-                self.resNodeGroups[res.resname][res.atoms.names[0]] = set(res.atoms.names)
-            else:
-                # If the residue is not an ION, check for Hydrogen atoms.
-
-                # Adds hydrogen atoms to a groups of atoms in every residue.
-                for atm in res.atoms:
-                    # Assume it is a hydrogen and bind it to the group of the atom
-                    # it is connected to.
-                    atmSet = set.union(*self.resNodeGroups[res.resname].values())
-                    if atm.name not in atmSet:
-                        boundTo = atm.bonded_atoms[0].name
-
-                        for key, val in self.resNodeGroups[res.resname].items():
-                            if boundTo in val:
-                                self.resNodeGroups[res.resname][key].add(atm.name)
-
-            setResNodes = set(self.resNodeGroups[res.resname].keys())
-            kMissing = setResNodes.difference(set(res.atoms.names))
-            if kMissing:
-                warningStr = (Fore.RED + "Warning!" + Fore.RESET +
-                              " residue {0} segid {1} resid {2} does not contain "
-                              "all node atoms. Missing atoms: {3}"
-                              ).format(res.resname,
-                                       res.segid,
-                                       res.resid,
-                                       " ".join(kMissing))
-                print(warningStr)
+        self.prep_node_groups(autocomp_groups)
 
         # The following steps will create an atom selection object
         # for atoms that represent nodes.
 
         # Builds list of selection statements
         selStrL = ["(resname {0} and name {1})".format(k, " ".join(v.keys()))
-                  for k, v in self.resNodeGroups.items()]
+                   for k, v in self.resNodeGroups.items()]
 
         # Combines all statements into one selection string
         selStr = " or ".join(selStrL)
@@ -750,7 +801,8 @@ class DNAproc:
 
         self.numNodes = self.nodesAtmSel.n_atoms
 
-        print("Preparing nodes...")
+        if verbose:
+            print("Preparing nodes...")
 
         self.atomToNode = np.full(shape=len(self.workU.atoms),
                                   fill_value=-1,
@@ -772,13 +824,16 @@ class DNAproc:
         # If so, that atom was not assigned a node.
         loneAtms = np.where(self.atomToNode < 0)[0]
         if len(loneAtms) > 0:
-            print("ERROR: Atoms were not assigned to any node! This can be a "
-                  "problem with your definition of nodes and atom groups.")
+            print("ERROR: Atoms were not assigned to any node!")
+            print("This can be a problem with your definition of "
+                  "nodes and atom groups.")
             print("Lone atoms: ")
             print(loneAtms)
             print("Lone atoms (types and residues): ")
             for atm in loneAtms:
                 print(self.workU.atoms[atm])
+
+            raise Exception("Found atoms not assigned to any node group")
 
         # Determine groups of atoms that define each node.
         # We need all this because the topology in the PSF may
@@ -795,7 +850,7 @@ class DNAproc:
             data = np.where(self.atomToNode == x)[0]
 
             ranges = []
-            for k, g in groupby(enumerate(data), lambda x: x[0]-x[1]):
+            for k, g in groupby(enumerate(data), lambda x: x[0] - x[1]):
                 # Creates an iterable from the group object.
                 groupMap = (map(itemgetter(1), g))
                 # Creates a list using the iterable
@@ -806,7 +861,7 @@ class DNAproc:
             nodeGroupRanges[x] = ranges
 
             # Transforms the ranges into lists
-            tmp = [[x for x in range(rang[0], rang[1]+1)]
+            tmp = [[x for x in range(rang[0], rang[1] + 1)]
                    for rang in nodeGroupRanges[x]]
 
             # Combine lists into one list
@@ -821,10 +876,11 @@ class DNAproc:
         self.nodeGroupIndicesNPAux = np.zeros(self.numNodes, dtype=int)
 
         for indx, atmGrp in enumerate(nodeGroupIndices[1:], start=1):
-            self.nodeGroupIndicesNPAux[indx] = len(nodeGroupIndices[indx-1]) + \
-                                               self.nodeGroupIndicesNPAux[indx-1]
+            self.nodeGroupIndicesNPAux[indx] = len(nodeGroupIndices[indx - 1]) + \
+                                               self.nodeGroupIndicesNPAux[indx - 1]
 
-        print("Nodes are ready for network analysis.")
+        if verbose:
+            print("Nodes are ready for network analysis.")
 
         return None
 
@@ -859,32 +915,32 @@ class DNAproc:
         if verbose:
             print("Using distance calculation mode: {}".format(self.distanceMode),
                   flush=True)
-            size = int(nAtoms*(nAtoms-1)/2) * np.array(0, dtype=float).itemsize
+            size = int(nAtoms * (nAtoms - 1) / 2) * np.array(0, dtype=float).itemsize
             mbStr = "Allocating temporary distance array of approximate size {} MB."
-            print(mbStr.format(size//1024//1024), flush=True)
+            print(mbStr.format(size // 1024 // 1024), flush=True)
             print("Starting allocation now!", flush=True)
 
         # Array to receive all-to-all distances, at every step
         if self.distanceMode == ct.MODE_ALL:
             # This array will store all distances between all atoms.
-            tmpDists = np.zeros(int(nAtoms*(nAtoms-1)/2), dtype=float)
+            tmpDists = np.zeros(int(nAtoms * (nAtoms - 1) / 2), dtype=float)
         elif self.distanceMode == ct.MODE_CAPPED:
             # This array will only be modified to store distances shorter
             # than the cutoff. Since all other distances are larger, we
             # initialize the array with an arbitrarily large value.
-            tmpDists = np.full(int(nAtoms*(nAtoms-1)/2), self.cutoffDist*2,
+            tmpDists = np.full(int(nAtoms * (nAtoms - 1) / 2), self.cutoffDist * 2,
                                dtype=float)
 
         if verbose:
             alcStr = "Allocated temporary distance array of size {} MB."
-            print(alcStr.format(tmpDists.nbytes//1024//1024), flush=True)
+            print(alcStr.format(tmpDists.nbytes // 1024 // 1024), flush=True)
 
         # Array to get minimum distances per node
-        tmpDistsAtms = np.full(nAtoms, self.cutoffDist*2, dtype=float)
+        tmpDistsAtms = np.full(nAtoms, self.cutoffDist * 2, dtype=float)
 
         if verbose:
             alcStr = "Allocated temporary NODE distance array of size {} KB."
-            print(alcStr.format(tmpDistsAtms.nbytes//1024), flush=True)
+            print(alcStr.format(tmpDistsAtms.nbytes // 1024), flush=True)
 
         if 0 > end:
             end = self.workU.trajectory.n_frames
@@ -940,17 +996,17 @@ class DNAproc:
                                       dtype=np.int)
 
         # Set number of frames per window.
-        winLen = int(np.floor(self.workU.trajectory.n_frames/self.numWinds))
+        winLen = int(np.floor(self.workU.trajectory.n_frames / self.numWinds))
 
         # Set number of frames that defines a contact
-        contactCutoff = (winLen/stride)*self.contactPersistence
+        contactCutoff = (winLen / stride) * self.contactPersistence
 
         for winIndx in self.progBar(range(self.numWinds),
                                     total=self.numWinds,
                                     desc="Window",
                                     ascii=self.asciiMode):
-            beg = winIndx*winLen
-            end = (winIndx+1)*winLen
+            beg = winIndx * winLen
+            end = (winIndx + 1) * winLen
 
             if verbose != 0:
                 print("Starting contact calculation...", flush=True)
@@ -965,7 +1021,7 @@ class DNAproc:
             if verbose != 0:
                 end = timer()
                 timeStr = "Time for contact calculation: {}"
-                print(timeStr.format(timedelta(seconds=end-start)), flush=True)
+                print(timeStr.format(timedelta(seconds=end - start)), flush=True)
 
             self.contactMatAll[winIndx, :, :] = \
                 np.where(self.contactMatAll[winIndx, :, :] > contactCutoff, 1, 0)
@@ -973,7 +1029,7 @@ class DNAproc:
             # Contact is calculated in Node_i to Node_j format, where i < j. This
             # the following loop populates the other half of the matrix for j < i.
             for i in range(self.numNodes):
-                for j in range(i+1, self.numNodes):
+                for j in range(i + 1, self.numNodes):
                     self.contactMatAll[winIndx, j, i] = \
                         self.contactMatAll[winIndx, i, j]
 
@@ -1020,7 +1076,7 @@ class DNAproc:
         # Counts total number of contacts
         if verbose:
             pairs = np.asarray(np.where(np.triu(self.contactMat) > 0)).T
-            totalPairs = self.contactMat.shape[0]*(self.contactMat.shape[0]-1)
+            totalPairs = self.contactMat.shape[0] * (self.contactMat.shape[0] - 1)
             totalPairs = int(totalPairs / 2)
             verbStr = "We found {0:n} contacting pairs out of {1:n} " \
                       "total pairs of nodes."
@@ -1059,7 +1115,6 @@ class DNAproc:
 
         for winIndx in self.progBar(range(self.numWinds), total=self.numWinds,
                                     desc="Window", ascii=self.asciiMode):
-
             self._filterContactsWindow(self.contactMatAll[winIndx, :, :],
                                        notSameRes=notSameRes,
                                        notConsecutiveRes=notConsecutiveRes)
@@ -1067,8 +1122,8 @@ class DNAproc:
             print("Window:", winIndx)
             upTri = np.triu(self.contactMatAll[winIndx, :, :])
             pairs = np.asarray(np.where(upTri > 0)).T
-            totalPairs = self.contactMat.shape[0]*(self.contactMat.shape[0]-1)
-            totalPairs = int(totalPairs/2)
+            totalPairs = self.contactMat.shape[0] * (self.contactMat.shape[0] - 1)
+            totalPairs = int(totalPairs / 2)
             verbStr = "We found {0:n} contacting pairs out of {1:n} " \
                       "total pairs of nodes."
             print(verbStr.format(len(pairs), totalPairs))
@@ -1084,7 +1139,7 @@ class DNAproc:
 
             # Gets indices for nodes with no contacts
             noContactNodesArray = np.sum(self.contactMat, axis=1) == 0
-            contactNodesArray   = ~noContactNodesArray
+            contactNodesArray = ~noContactNodesArray
 
             # Atom selection for nodes with contact
             contactNodesSel = self.nodesAtmSel.atoms[contactNodesArray]
@@ -1121,7 +1176,7 @@ class DNAproc:
 
             # Trims matrices
             self.contactMatAll = self.contactMatAll[:, nodeMask, :]
-            self.contactMatAll = self.contactMatAll[:, :,  nodeMask]
+            self.contactMatAll = self.contactMatAll[:, :, nodeMask]
 
             self.contactMat = self.contactMat[nodeMask, :]
             self.contactMat = self.contactMat[:, nodeMask]
@@ -1283,8 +1338,8 @@ class DNAproc:
                     mat[i, j] = 0
 
             # Keeps node from making direct contact to previous residue in chain
-            if notConsecutiveRes and (res.resindex-1 >= 0):
-                prevRes = self.workU.residues[res.resindex-1]
+            if notConsecutiveRes and (res.resindex - 1 >= 0):
+                prevRes = self.workU.residues[res.resindex - 1]
 
                 if prevRes.segid == res.segid:
 
@@ -1309,8 +1364,8 @@ class DNAproc:
 
             # Keeps node from making direct contact to following residue in chain
             # (same as above)
-            if notConsecutiveRes and (res.resindex+1 < self.workU.residues.n_residues):
-                folRes = self.workU.residues[res.resindex+1]
+            if notConsecutiveRes and (res.resindex + 1 < self.workU.residues.n_residues):
+                folRes = self.workU.residues[res.resindex + 1]
 
                 if folRes.segid == res.segid:
 
@@ -1360,7 +1415,7 @@ class DNAproc:
 
         print("Calculating correlations...\n")
 
-        winLen = int(np.floor(self.workU.trajectory.n_frames/self.numWinds))
+        winLen = int(np.floor(self.workU.trajectory.n_frames / self.numWinds))
         print("Using window length of {} simulation steps.".format(winLen))
 
         # Allocate the space for all correlations matrices (for all windows).
@@ -1389,7 +1444,7 @@ class DNAproc:
 
         # Pre-calculate psi values for all frames.
         # (allocation and initialization step)
-        psi = np.zeros([winLen+1], dtype=np.float)
+        psi = np.zeros([winLen + 1], dtype=np.float)
         psi[1] = -0.57721566490153
 
         # Pre-calculate psi values for all frames.
@@ -1399,9 +1454,9 @@ class DNAproc:
                 psi[indx + 1] = psi[indx] + 1 / indx
 
         # Pre calculates "psi[k] - 1/k"
-        phi = np.ndarray([self.kNeighb+1], dtype=np.float64)
-        for tmpindx in range(1, (self.kNeighb+1)):
-            phi[tmpindx] = psi[tmpindx] - 1/tmpindx
+        phi = np.ndarray([self.kNeighb + 1], dtype=np.float64)
+        for tmpindx in range(1, (self.kNeighb + 1)):
+            phi[tmpindx] = psi[tmpindx] - 1 / tmpindx
 
         if ncores == 1:
 
@@ -1412,8 +1467,8 @@ class DNAproc:
                                         desc="Window",
                                         ascii=self.asciiMode):
 
-                beg = int(winIndx*winLen)
-                end = int((winIndx+1)*winLen)
+                beg = int(winIndx * winLen)
+                end = int((winIndx + 1) * winLen)
 
                 corMask = self.contactMatAll[winIndx, :, :]
                 corMask[np.where(self.corrMatAll[winIndx, :, :] > 0)] = 0
@@ -1448,7 +1503,7 @@ class DNAproc:
 
                     # Determine generalized correlation coeff from the Mutual Information
                     if corr:
-                        corr = np.sqrt(1-np.exp(-2.0/numDims*corr))
+                        corr = np.sqrt(1 - np.exp(-2.0 / numDims * corr))
 
                     self.corrMatAll[winIndx, atmList[0], atmList[1]] = corr
                     self.corrMatAll[winIndx, atmList[1], atmList[0]] = corr
@@ -1461,8 +1516,8 @@ class DNAproc:
                                         total=self.numWinds,
                                         desc="Window",
                                         ascii=self.asciiMode):
-                beg = int(winIndx*winLen)
-                end = int((winIndx+1)*winLen)
+                beg = int(winIndx * winLen)
+                end = int((winIndx + 1) * winLen)
 
                 pairList = []
 
@@ -1523,7 +1578,6 @@ class DNAproc:
                                       desc="Contact Pair",
                                       leave=False,
                                       ascii=self.asciiMode):
-
                     # Waits until the next result is available,
                     # then puts it in the matrix.
                     result = results_queue.get()
@@ -1565,27 +1619,26 @@ class DNAproc:
         print("Calculating cartesian distances...\n")
 
         # numFramesDists is used in the calculation of statistics!
-        numFramesDists = self.numSampledFrames*self.numWinds
+        numFramesDists = self.numSampledFrames * self.numWinds
 
         selectionAtms = self.workU.select_atoms("all")
 
-        nodeDistsTmp = np.zeros([int(self.numNodes*(self.numNodes-1)/2)],
+        nodeDistsTmp = np.zeros([int(self.numNodes * (self.numNodes - 1) / 2)],
                                 dtype=np.float64)
 
-        self.nodeDists = np.zeros([4, int(self.numNodes*(self.numNodes-1)/2)],
+        self.nodeDists = np.zeros([4, int(self.numNodes * (self.numNodes - 1) / 2)],
                                   dtype=np.float64)
         outStr = "Sampling a total of {0} frames from {1} windows ({2} per window)..."
         print(outStr.format(numFramesDists, self.numWinds, self.numSampledFrames))
 
-        steps = int(np.floor(len(self.workU.trajectory)/numFramesDists))
-        maxFrame = numFramesDists*steps
+        steps = int(np.floor(len(self.workU.trajectory) / numFramesDists))
+        maxFrame = numFramesDists * steps
 
         # Mean distance
         for ts in self.progBar(self.workU.trajectory[0:maxFrame:steps],
                                total=numFramesDists,
                                desc="MEAN: Timesteps",
                                ascii=self.asciiMode):
-
             ct.calcDistances(selectionAtms, self.numNodes, selectionAtms.n_atoms,
                              self.atomToNode, self.cutoffDist,
                              self.nodeGroupIndicesNP, self.nodeGroupIndicesNPAux,
@@ -1607,7 +1660,6 @@ class DNAproc:
                                total=numFramesDists,
                                desc="SEM/MIN/MAX: Timesteps",
                                ascii=self.asciiMode):
-
             ct.calcDistances(selectionAtms,
                              self.numNodes,
                              selectionAtms.n_atoms,
@@ -1632,7 +1684,7 @@ class DNAproc:
             # Sample standard deviation: SQRT of sum divided by N-1
             self.nodeDists[1, :] = np.sqrt(self.nodeDists[1, :] / (numFramesDists - 1))
             # SEM:  STD / sqrt(N)
-            self.nodeDists[1, :] = self.nodeDists[1, :]/np.sqrt(numFramesDists)
+            self.nodeDists[1, :] = self.nodeDists[1, :] / np.sqrt(numFramesDists)
 
     def calcGraphInfo(self):
         """Create a graph from the correlation matrix.
@@ -1657,17 +1709,17 @@ class DNAproc:
 
             # We substitute zeros for a non-zero value to avoid "zero division" warnings
             #   from the np.log transformation below.
-            self.corrMatAll[np.where(self.corrMatAll == 0)] = 10**-11
+            self.corrMatAll[np.where(self.corrMatAll == 0)] = 10 ** -11
 
             # Use log transformation for network distance calculations.
-            tmpLogTransf = -1.0*np.log(self.corrMatAll[win, :, :])
+            tmpLogTransf = -1.0 * np.log(self.corrMatAll[win, :, :])
 
             # Now we guarantee that the previous transformation does not
             #   create "negative infitite" distances. We set those to zero.
             tmpLogTransf[np.where(np.isinf(tmpLogTransf))] = 0
 
             # Now we return to zero-correlation we had before.
-            self.corrMatAll[np.where(self.corrMatAll < 10**-10)] = 0
+            self.corrMatAll[np.where(self.corrMatAll < 10 ** -10)] = 0
 
             # Loop over all graph edges and set their distances.
             for pair in self.nxGraphs[win].edges.keys():
@@ -1725,7 +1777,6 @@ class DNAproc:
 
             for win in self.progBar(range(self.numWinds), total=self.numWinds,
                                     desc="Window", ascii=self.asciiMode):
-
                 # IMPORTANT! #####
                 # For the FW optimal path determination, we use the "distance"
                 # as weight, that is, the log-transformation of the correlations.
@@ -1758,7 +1809,6 @@ class DNAproc:
 
             for win in self.progBar(range(self.numWinds), total=self.numWinds,
                                     desc="Window", ascii=self.asciiMode):
-
                 # Waits until the next result is available,
                 # then stores it in the object.
                 result = outQueue.get()
@@ -1781,8 +1831,7 @@ class DNAproc:
         # We check connection with the correlation matrix because at times,
         # two nodes may be in contact (physical proximity) but may not
         # have any correlation.
-        self.maxDirectDist = max([self.distsAll[win,
-                                                self.corrMatAll[win, :, :] > 0].max()
+        self.maxDirectDist = max([self.distsAll[win, self.corrMatAll[win, :, :] > 0].max()
                                   for win in range(self.numWinds)])
 
     def getPath(self, nodeI, nodeJ):
@@ -1833,7 +1882,6 @@ class DNAproc:
                                     total=self.numWinds,
                                     desc="Window",
                                     ascii=self.asciiMode):
-
                 # Calc all betweenness in entire system.
                 # IMPORTANT! ##########
                 # For the betweenness, we only care about the number of the
@@ -1866,7 +1914,6 @@ class DNAproc:
                                     total=self.numWinds,
                                     desc="Window",
                                     ascii=self.asciiMode):
-
                 # Waits until the next result is available,
                 # then stores it in the object.
                 result = outQueue.get()
@@ -1943,7 +1990,6 @@ class DNAproc:
                                 if self.nxGraphs[win].nodes[n]['modularity'] == comm]
 
                 if eigenvAvail:
-
                     # Then create a dictionary of the eigenvector centralities
                     # of those nodes
                     nodesInClassEigenVs = {n: self.nxGraphs[win].nodes[n]['eigenvector']
@@ -2020,7 +2066,7 @@ class DNAproc:
         """
 
         # Select the necessary stride so that we get *samples*.
-        stride = int(np.floor(len(self.workU.trajectory)/samples))
+        stride = int(np.floor(len(self.workU.trajectory) / samples))
 
         selPtn = self.workU.select_atoms(selAstr)
         selNcl = self.workU.select_atoms(selBstr)
@@ -2029,7 +2075,7 @@ class DNAproc:
 
         # Find selection of atoms that are within "betweenDist" from both selections.
         # Get selection of nodes represented by the atoms by sampling several frames.
-        for ts in self.progBar(self.workU.trajectory[:samples*stride:stride],
+        for ts in self.progBar(self.workU.trajectory[:samples * stride:stride],
                                desc="Samples",
                                total=samples,
                                ascii=self.asciiMode):
@@ -2062,7 +2108,7 @@ class DNAproc:
         # Sanity check.
         # Verifies possible references from atoms that had no nodes.
         if len(contactNodesL[contactNodesL < 0]):
-            errStr = "ERROR! There are {} atoms not represented by nodes! " +\
+            errStr = "ERROR! There are {} atoms not represented by nodes! " + \
                      "Verify your universe and atom selection."
             print(errStr.format(len(contactNodesL[contactNodesL < 0])))
             return -1
