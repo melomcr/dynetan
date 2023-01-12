@@ -1,14 +1,9 @@
 import pytest
 
-# import dynetan as dna
-# import MDAnalysis as mda
-
 from dynetan.proctraj import is_proteic
 
 from .test_proctraj_checksys_selectsys import test_data_dir  # NOQA - PyCharm
-# from .test_proctraj_checksys_selectsys import psf_fn_omp, dcd_fn_omp
-
-from .test_proctraj_checksys_selectsys import dnap_omp
+from .test_proctraj_checksys_selectsys import dnap_omp  # NOQA - PyCharm
 
 
 @pytest.mark.parametrize(("resname", "return_val"), [
