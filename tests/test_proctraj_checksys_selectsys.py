@@ -33,10 +33,16 @@ def dnap_omp(test_data_dir):
     # Test the default wrapper for loading a list of paths to DCDs
     dnap_omp.loadSystem(psfFile, dcdFiles)
 
-    node_grps = {"OMP": {}}
+    # Initialize user-defined residues
+    node_grps = {"OMP": {}, "TIP3": {}}
+
+    # Define nodes and atom groups for the ligand
     node_grps["OMP"]["N1"] = set("N1 C2 O2 N3 C4 O4 C5 C6 C7 OA OB".split())
     node_grps["OMP"]["P"] = set(
         "P OP1 OP2 OP3 O5' C5' C4' O4' C1' C3' C2' O2' O3'".split())
+
+    # Define node and atom group for the solvent
+    node_grps["TIP3"]["OH2"] = set("OH2 H1 H2".split())
 
     dnap_omp.setNumWinds(2)
     dnap_omp.setNumSampledFrames(2)
@@ -53,7 +59,11 @@ def tmp_dna_test_dir(tmp_path_factory):
     return tmp_path_factory.mktemp("traj_data")
 
 
-class TestPackage:
+class TestPackageSysVerificationSelection:
+    """
+    This class aggregates functions to test the system selection and verification
+    methods implemented in DyNetAn.
+    """
 
     def test_load_data(self, test_data_dir):
         psfFile  = os.path.join(test_data_dir, psf_fn_omp)
@@ -107,6 +117,16 @@ class TestPackage:
         dnap_omp.selectSystem(with_solvent=solv,
                               input_sel_str=sel,
                               verbose=verb)
+
+    def test_select_system_pre_check(self, dnap_omp):
+        # We will intentionally SKIP the "checkSystem" method to test if
+        # the "selectSystem" method will automatically call "checkSystem" to
+        # initialize variables.
+        dnap_omp.selectSystem(with_solvent=False,
+                              input_sel_str="",
+                              verbose=0)
+
+        assert dnap_omp.notSelSegidSet is not None
 
     @pytest.mark.xfail()
     def test_select_system_condition(self, test_data_dir):
