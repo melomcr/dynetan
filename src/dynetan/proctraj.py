@@ -424,6 +424,7 @@ class DNAproc:
         assert self.workU is not None, "ERROR! This function can only be called " \
                                        "after loading a system. Check your universe!"
 
+        # Initialize residue name sets for system selection
         allResNamesSet = set()
         selResNamesSet = set()
         notSelSegidSet = set()
@@ -522,6 +523,10 @@ class DNAproc:
         assert isinstance(with_solvent, bool)
         assert isinstance(input_sel_str, str)
         assert isinstance(verbose, int)
+
+        if self.notSelSegidSet is None:
+            print("Checking system for information on residues and segments...")
+            self.checkSystem()
 
         if (not with_solvent) and (not self.solventNames):
             print("ERROR: Automatic removal of all solvent molecules can only "
