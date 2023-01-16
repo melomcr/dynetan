@@ -755,6 +755,24 @@ class DNAproc:
 
                 raise Exception(errorStr)
 
+    def _check_atom_to_node_mapping(self, verbose: int = 1):
+        # Verification: checks if there are any "-1" left.
+        # If so, that atom was not assigned a node.
+        loneAtms = np.where(self.atomToNode < 0)[0]
+        if len(loneAtms) > 0:
+            if verbose:
+                print("ERROR: Atoms were not assigned to any node!")
+                print("This can be a problem with your definition of "
+                      "nodes and atom groups.")
+                print("Lone atoms: ")
+                print(loneAtms)
+                print("Lone atoms (types and residues): ")
+                if verbose > 1:
+                    for atm in loneAtms:
+                        print(self.workU.atoms[atm])
+
+            raise Exception("Found atoms not assigned to any node group")
+
     def prepareNetwork(self,
                        verbose: int = 0,
                        autocomp_groups: bool = True):
@@ -820,20 +838,7 @@ class DNAproc:
                 if atm.name in self.resNodeGroups[node.resname][node.name]:
                     self.atomToNode[atm.ix] = indx
 
-        # Verification: checks if there are any "-1" left.
-        # If so, that atom was not assigned a node.
-        loneAtms = np.where(self.atomToNode < 0)[0]
-        if len(loneAtms) > 0:
-            print("ERROR: Atoms were not assigned to any node!")
-            print("This can be a problem with your definition of "
-                  "nodes and atom groups.")
-            print("Lone atoms: ")
-            print(loneAtms)
-            print("Lone atoms (types and residues): ")
-            for atm in loneAtms:
-                print(self.workU.atoms[atm])
-
-            raise Exception("Found atoms not assigned to any node group")
+        self._check_atom_to_node_mapping(verbose)
 
         # Determine groups of atoms that define each node.
         # We need all this because the topology in the PSF may
@@ -884,37 +889,77 @@ class DNAproc:
 
         return None
 
-    def alignTraj(self, inMemory=True):
-        """Wrapper function for MDAnalysis trajectory alignment tool.
+    def alignTraj(self,
+                  select_str: str = "",
+                  in_memory: bool = True,
+                  verbose: int = 0):
         """
+        Wrapper function for MDAnalysis trajectory alignment tool.
+
+        Args:
+            in_memory: Controls if MDAnalysis `AlignTraj` will run in memory.
+            select_str: User defined selection for alignment. If empty, will
+                use default: Select all user-defined segments and exclude
+                hydrogen atoms.
+            verbose: Controls verbosity level.
+
+        Returns:
+            none
+        """
+
+        assert isinstance(in_memory, bool)
+        assert isinstance(select_str, str)
+        assert isinstance(verbose, int)
+
         from MDAnalysis.analysis import align as mdaAlign
 
-        # Set the first frame as reference for alignment
-        self.workU.trajectory[0]
+        if not select_str.strip():
+            select_str = "segid " + " ".join(self.segIDs) + \
+                         " and not (name H* or name [123]H*)"
+
+        if verbose > 1:
+            print("Using alignment selection string: ")
+            print(select_str)
+
+        # Set the first frame as reference for alignment.
+        # The opperator[] is used in MDanalysis to select a reference frame for
+        # alignment.
+        _ = self.workU.trajectory[0]
 
         alignment = mdaAlign.AlignTraj(self.workU, self.workU,
-                                       select="segid " + " ".join(self.segIDs) +
-                                              " and not (name H* or name [123]H*)",
-                                       verbose=True,
-                                       in_memory=inMemory,
+                                       select=select_str,
+                                       verbose=verbose,
+                                       in_memory=in_memory,
                                        weights="mass")
         alignment.run()
 
-    def _contactTraj(self, contactMat, beg=0, end=-1, stride=1, verbose=0):
+    def _contactTraj(self,
+                     contact_mat: np.ndarray,
+                     beg: int = 0,
+                     end: int = -1,
+                     stride: int = 1,
+                     verbose: int = 0):
         """Wrapper for contact calculation per trajectory window.
 
         Pre allocates the necessary temporary NumPy arrays to speed up calculations.
 
         """
 
+        assert isinstance(contact_mat, np.ndarray)
+        assert isinstance(beg, int)
+        assert isinstance(end, int)
+        assert isinstance(stride, int)
+        assert isinstance(verbose, int)
+
         # Creates atom selection for distance calculation
         selectionAtms = self.workU.select_atoms("all")
 
         nAtoms = selectionAtms.n_atoms
 
-        if verbose:
-            print("Using distance calculation mode: {}".format(self.distanceMode),
-                  flush=True)
+        if verbose > 1:
+            dist_mode_str = dist_modes[self.distanceMode]
+            msg_str = f"Using distance calculation mode: {dist_mode_str}"
+            print(msg_str, flush=True)
             size = int(nAtoms * (nAtoms - 1) / 2) * np.array(0, dtype=float).itemsize
             mbStr = "Allocating temporary distance array of approximate size {} MB."
             print(mbStr.format(size // 1024 // 1024), flush=True)
@@ -924,30 +969,40 @@ class DNAproc:
         if self.distanceMode == ct.MODE_ALL:
             # This array will store all distances between all atoms.
             tmpDists = np.zeros(int(nAtoms * (nAtoms - 1) / 2), dtype=float)
+            if verbose > 1:
+                print("Filling array with zeros.")
+
         elif self.distanceMode == ct.MODE_CAPPED:
             # This array will only be modified to store distances shorter
             # than the cutoff. Since all other distances are larger, we
             # initialize the array with an arbitrarily large value.
-            tmpDists = np.full(int(nAtoms * (nAtoms - 1) / 2), self.cutoffDist * 2,
+            fill_val = self.cutoffDist * 2
+            tmpDists = np.full(int(nAtoms * (nAtoms - 1) / 2),
+                               fill_val,
                                dtype=float)
+            if verbose > 1:
+                print(f"Filling array twice the cutoff distance {fill_val}.")
 
-        if verbose:
+        if verbose > 1:
             alcStr = "Allocated temporary distance array of size {} MB."
             print(alcStr.format(tmpDists.nbytes // 1024 // 1024), flush=True)
 
         # Array to get minimum distances per node
         tmpDistsAtms = np.full(nAtoms, self.cutoffDist * 2, dtype=float)
 
-        if verbose:
+        if verbose > 1:
             alcStr = "Allocated temporary NODE distance array of size {} KB."
             print(alcStr.format(tmpDistsAtms.nbytes // 1024), flush=True)
 
         if 0 > end:
             end = self.workU.trajectory.n_frames
 
+        if verbose > 1:
+            print(f"Checking frames {beg} to {end} with stride {stride}.")
+
         for ts in self.workU.trajectory[beg:end:stride]:
 
-            if verbose:
+            if verbose > 1:
                 print("Calculating contacts for timestep {}.".format(ts),
                       flush=True)
 
@@ -958,13 +1013,13 @@ class DNAproc:
                             self.cutoffDist,
                             tmpDists,
                             tmpDistsAtms,
-                            contactMat,
+                            contact_mat,
                             self.atomToNode,
                             self.nodeGroupIndicesNP,
                             self.nodeGroupIndicesNPAux,
                             distMode=self.distanceMode)
 
-    def findContacts(self, stride=1, verbose=0):
+    def findContacts(self, stride: int = 1, verbose: int = 1):
         """Finds all nodes in contact.
 
         This is the main user interface access to calculate nodes in contact.
@@ -991,9 +1046,14 @@ class DNAproc:
 
         """
 
+        assert isinstance(stride, int)
+        assert isinstance(verbose, int)
+
+        assert stride > 0
+
         # Allocate contact matrix(ces)
         self.contactMatAll = np.zeros([self.numWinds, self.numNodes, self.numNodes],
-                                      dtype=np.int)
+                                      dtype=np.int64)
 
         # Set number of frames per window.
         winLen = int(np.floor(self.workU.trajectory.n_frames / self.numWinds))
@@ -1008,9 +1068,10 @@ class DNAproc:
             beg = winIndx * winLen
             end = (winIndx + 1) * winLen
 
-            if verbose != 0:
-                print("Starting contact calculation...", flush=True)
-                start = timer()
+            if verbose > 1:
+                msgStr = f"Starting contact calculation for window {winIndx} ..."
+                print(msgStr, flush=True)
+                start_timer = timer()
 
             self._contactTraj(self.contactMatAll[winIndx, :, :],
                               beg,
@@ -1018,10 +1079,11 @@ class DNAproc:
                               stride,
                               verbose)
 
-            if verbose != 0:
-                end = timer()
+            if verbose > 1:
+                end_timer = timer()
+                time_delta = end_timer - start_timer
                 timeStr = "Time for contact calculation: {}"
-                print(timeStr.format(timedelta(seconds=end - start)), flush=True)
+                print(timeStr.format(timedelta(seconds=time_delta)), flush=True)
 
             self.contactMatAll[winIndx, :, :] = \
                 np.where(self.contactMatAll[winIndx, :, :] > contactCutoff, 1, 0)
@@ -1036,13 +1098,13 @@ class DNAproc:
         # Update unified contact matrix for all windows
         self._genContactMatrix()
 
-        self.checkContactMat()
+        self.checkContactMat(verbose=verbose)
 
     def _genContactMatrix(self):
         """Update unified contact matrix for all windows.
         """
         # Allocate a unified contact matrix for all windows.
-        self.contactMat = np.zeros([self.numNodes, self.numNodes], dtype=np.int)
+        self.contactMat = np.zeros([self.numNodes, self.numNodes], dtype=np.int64)
 
         # Join all data for all windows on the same unified contact matrix.
         for winIndx in range(self.numWinds):
@@ -1051,7 +1113,7 @@ class DNAproc:
         # Creates binary mask with pairs of nodes in contact
         self.contactMat = np.where(self.contactMat > 0, 1, 0)
 
-    def checkContactMat(self, verbose=True):
+    def checkContactMat(self, verbose: int = 1):
         """Sanity checks for contact matrix for all windows.
 
         Checks if the contact matrix is symmetric and if there are any nodes
@@ -1064,9 +1126,11 @@ class DNAproc:
 
         """
 
+        assert isinstance(verbose, int)
+
         # Sanity Checks that the contact matrix is symmetric
         if not np.allclose(self.contactMat, self.contactMat.T, atol=0.1):
-            print("ERROR: the contact matrix is not symmetric.")
+            raise Exception("ERROR: the contact matrix is not symmetric.")
 
         # Checks if there is any node that does not make contacts to ANY other node.
         noContactNodes = np.asarray(np.where(np.sum(self.contactMat, axis=1) == 0)[0])
@@ -1085,8 +1149,166 @@ class DNAproc:
             print("(That's {0}%, by the way)".format(pairPc))
 
     # TODO: reduce complexity - Flake8 marks it at 20
-    def filterContacts(self, notSameRes=True, notConsecutiveRes=False,
-                       removeIsolatedNodes=True, verbose=0):
+    def _remove_isolated(self, verbose: int = 0):
+
+        if verbose > 0:
+            print("\nRemoving isolated nodes...\n")
+
+        # Update unified contact matrix for all windows
+        self._genContactMatrix()
+
+        # Gets indices for nodes with no contacts
+        noContactNodesArray = np.sum(self.contactMat, axis=1) == 0
+        contactNodesArray = ~noContactNodesArray
+
+        # Atom selection for nodes with contact
+        contactNodesSel = self.nodesAtmSel.atoms[contactNodesArray]
+        noContactNodesSel = self.nodesAtmSel.atoms[noContactNodesArray]
+
+        # Keep nodes that belong to residues with at least one network-bound node.
+        # This is important in lipids and nucleotides that may have multiple nodes,
+        # and only one is connected to the system.
+        # First we select *residues* which have at least one node in contact.
+        resNoContacts = list(set(noContactNodesSel.residues.ix) -
+                             set(contactNodesSel.residues.ix))
+        # Then we create an atom selection for residues with no nodes in contact.
+        noContactNodesSel = self.nodesAtmSel.residues[resNoContacts]
+        # Finally we update the selection for all nodes that belong to residues with
+        # at least one node in contact.
+        mask = np.ones(len(self.nodesAtmSel.residues), dtype=bool)
+        mask[resNoContacts] = False
+        contactNodesSel = self.nodesAtmSel.residues[mask].atoms.intersection(
+            self.nodesAtmSel)
+
+        # We also have to update the contact matrix that represent nodes which will
+        # be kept in the system. For this we will build another mask.
+        nodeMask = np.ones(len(self.nodesAtmSel.atoms.ids), dtype=bool)
+        for indx, atm in enumerate(self.nodesAtmSel.atoms):
+            # We check if the atom belongs to the selection of atoms that will be
+            # kept in the system.
+            nodeMask[indx] = atm.id in contactNodesSel.atoms.ids
+
+        # Checks if there is any node that does not make contacts to ANY other node.
+        if verbose > 0:
+            print("We found {0} nodes with no contacts.".format(len(noContactNodesSel)))
+        if verbose > 1:
+            for atm in noContactNodesSel.atoms:
+                print(atm)
+
+        # Trims matrices
+        self.contactMatAll = self.contactMatAll[:, nodeMask, :]
+        self.contactMatAll = self.contactMatAll[:, :, nodeMask]
+
+        self.contactMat = self.contactMat[nodeMask, :]
+        self.contactMat = self.contactMat[:, nodeMask]
+
+        if verbose > 0:
+            statusStr = "\nIsolated nodes removed. We now have {} nodes in " \
+                        "the system\n"
+            print(statusStr.format(self.contactMatAll[0].shape[0]))
+            print("Running new contact matrix sanity check...")
+
+        self.checkContactMat(verbose)
+
+        #########################
+        # Update Universe and network data
+
+        if verbose > 0:
+            print("\nUpdating Universe to reflect new node selection...")
+
+        # Here we use the new node selection to find *all atoms* from residues
+        # that contain selected nodes, not just the atoms that represent
+        # nodes stored in the `contactNodesSel` variable.
+
+        # Instead of using a long selection string programmatically created
+        # for all nodes, the following loop gathers all selected residues
+        # from all segments that have at least one selected residue. Then,
+        # it creates a list with one string per segment. This reduces the
+        # load on the recursion-based atom selection language in MDanalysis.
+
+        from collections import defaultdict
+        selDict = defaultdict(list)
+        for res in contactNodesSel.residues:
+            selDict[res.segid].append(str(res.resid))
+
+        selStrL = []
+        for segid, residL in selDict.items():
+            selStrL.append("segid {} and resid {}".format(segid, " ".join(residL)))
+
+        if verbose:
+            print("Creating a smaller atom selection without isolated nodes.")
+
+        allSel = self.workU.select_atoms(*selStrL)
+
+        if verbose:
+            print("Creating a smaller universe without isolated nodes.")
+
+        # Merging a selection from the universe returns a new (and smaller) universe
+        self.workU = mda.core.universe.Merge(allSel)
+
+        if verbose:
+            print("Capture coordinates from selected nodes in previous universe.")
+
+        # We now create a new universe with coordinates from the selected residues
+        resObj = mdaAFF(lambda ag: ag.positions.copy(), allSel).run().results
+
+        # This checks the type of the MDAnalysis results. Prior to version 2.0.0,
+        # MDA returned a numpy.ndarray with the trajectory coordinates. After
+        # version 2.0.0, it returns a results object that contains the trajectory.
+        # With this check, the code can handle both APIs.
+        if not isinstance(resObj, np.ndarray):
+            resObj = resObj['timeseries']
+
+        if verbose:
+            print("Load coordinates from selected nodes in new universe.")
+
+        self.workU.load_new(resObj, format=mdaMemRead)
+
+        if verbose:
+            print("Recreate node-atom selection.")
+
+        # Regenerate selection of atoms that represent nodes.
+
+        # Builds list of selection statements
+        selStr = ["(resname {0} and name {1})".format(k, " ".join(v.keys()))
+                  for k, v in self.resNodeGroups.items()]
+
+        # Combines all statements into one selection string
+        selStr = " or ".join(selStr)
+
+        if verbose:
+            print("Selection string for atoms that represent network nodes:")
+            print(selStr)
+
+        self.nodesAtmSel = self.workU.select_atoms(selStr)
+
+        self.numNodes = self.nodesAtmSel.n_atoms
+
+        # Creates an array relating all atoms in the system to nodes.
+        self.atomToNode = np.full(shape=allSel.n_atoms,
+                                  fill_value=-1,
+                                  dtype=int)
+
+        print("Updating atom-to-node mapping...")
+
+        for indx, node in enumerate(self.progBar(self.nodesAtmSel.atoms,
+                                                 desc="Node",
+                                                 ascii=self.asciiMode)):
+
+            # Loops over all atoms in the residue related to the node
+            for atm in node.residue.atoms:
+
+                # Checks if the atom name is listed for the node
+                if atm.name in self.resNodeGroups[node.resname][node.name]:
+                    self.atomToNode[atm.ix] = indx
+
+        self._check_atom_to_node_mapping(verbose)
+
+    def filterContacts(self,
+                       notSameRes: bool = True,
+                       notConsecutiveRes: bool = False,
+                       removeIsolatedNodes: bool = True,
+                       verbose: int = 0):
         """Filters network contacts over the system.
 
         The function removes edges and nodes in preparation for network analysis.
@@ -1110,8 +1332,13 @@ class DNAproc:
             notConsecutiveRes (bool) : Remove contacts between nodes in
                 consecutive residues.
             removeIsolatedNodes (bool) : Remove nodes with no contacts.
-
+            verbose (bool) : Controls verbosity of output.
         """
+
+        assert isinstance(notSameRes, bool)
+        assert isinstance(notConsecutiveRes, bool)
+        assert isinstance(removeIsolatedNodes, bool)
+        assert isinstance(verbose, int)
 
         for winIndx in self.progBar(range(self.numWinds), total=self.numWinds,
                                     desc="Window", ascii=self.asciiMode):
@@ -1119,180 +1346,28 @@ class DNAproc:
                                        notSameRes=notSameRes,
                                        notConsecutiveRes=notConsecutiveRes)
 
-            print("Window:", winIndx)
+            if verbose > 0:
+                print("Window:", winIndx)
+
             upTri = np.triu(self.contactMatAll[winIndx, :, :])
             pairs = np.asarray(np.where(upTri > 0)).T
             totalPairs = self.contactMat.shape[0] * (self.contactMat.shape[0] - 1)
             totalPairs = int(totalPairs / 2)
-            verbStr = "We found {0:n} contacting pairs out of {1:n} " \
-                      "total pairs of nodes."
-            print(verbStr.format(len(pairs), totalPairs))
-            pairPc = round((len(pairs) / totalPairs) * 100, 1)
-            print("(That's {0}%, by the way)".format(pairPc))
+
+            if verbose > 0:
+                verbStr = "We found {0:n} contacting pairs out of {1:n} " \
+                          "total pairs of nodes."
+                print(verbStr.format(len(pairs), totalPairs))
+                pairPc = round((len(pairs) / totalPairs) * 100, 1)
+                print("(That's {0}%, by the way)".format(pairPc))
 
         if removeIsolatedNodes:
+            self._remove_isolated(verbose)
 
-            print("\nRemoving isolated nodes...\n")
-
-            # Update unified contact matrix for all windows
-            self._genContactMatrix()
-
-            # Gets indices for nodes with no contacts
-            noContactNodesArray = np.sum(self.contactMat, axis=1) == 0
-            contactNodesArray = ~noContactNodesArray
-
-            # Atom selection for nodes with contact
-            contactNodesSel = self.nodesAtmSel.atoms[contactNodesArray]
-            noContactNodesSel = self.nodesAtmSel.atoms[noContactNodesArray]
-
-            # Keep nodes that belong to residues with at least one network-bound node.
-            # This is important in lipids and nucleotides that may have multiple nodes,
-            # and only one is connected to the system.
-            # First we select *residues* which have at least one node in contact.
-            resNoContacts = list(set(noContactNodesSel.residues.ix) -
-                                 set(contactNodesSel.residues.ix))
-            # Then we create an atom selection for residues with no nodes in contact.
-            noContactNodesSel = self.nodesAtmSel.residues[resNoContacts]
-            # Finally we update the selection for all nodes that belong to residues with
-            # at least one node in contact.
-            mask = np.ones(len(self.nodesAtmSel.residues), dtype=bool)
-            mask[resNoContacts] = False
-            contactNodesSel = self.nodesAtmSel.residues[mask].atoms.intersection(
-                self.nodesAtmSel)
-
-            # We also have to update the contact matrix that represent nodes which will
-            # be kept in the system. For this we will build another mask.
-            nodeMask = np.ones(len(self.nodesAtmSel.atoms.ids), dtype=bool)
-            for indx, atm in enumerate(self.nodesAtmSel.atoms):
-                # We check if the atom belongs to the selection of atoms that will be
-                # kept in the system.
-                nodeMask[indx] = atm.id in contactNodesSel.atoms.ids
-
-            # Checks if there is any node that does not make contacts to ANY other node.
-            print("We found {0} nodes with no contacts.".format(len(noContactNodesSel)))
-            if verbose:
-                for atm in noContactNodesSel.atoms:
-                    print(atm)
-
-            # Trims matrices
-            self.contactMatAll = self.contactMatAll[:, nodeMask, :]
-            self.contactMatAll = self.contactMatAll[:, :, nodeMask]
-
-            self.contactMat = self.contactMat[nodeMask, :]
-            self.contactMat = self.contactMat[:, nodeMask]
-
-            statusStr = "\nIsolated nodes removed. We now have {} nodes in " \
-                        "the system\n"
-            print(statusStr.format(self.contactMatAll[0].shape[0]))
-            print("Running new contact matrix sanity check...")
-
-            self.checkContactMat()
-
-            #########################
-            # Update Universe and network data
-
-            print("\nUpdating Universe to reflect new node selection...")
-
-            # Here we use the new node selection to find *all atoms* from residues
-            # that contain selected nodes, not just the atoms that represent
-            # nodes stored in the `contactNodesSel` variable.
-
-            # Instead of using a long selection string programmatically created
-            # for all nodes, the following loop gathers all selected residues
-            # from all segments that have at least one selected residue. Then,
-            # it creates a list with one string per segment. This reduces the
-            # load on the recursion-based atom selection language in MDanalysis.
-
-            from collections import defaultdict
-            selDict = defaultdict(list)
-            for res in contactNodesSel.residues:
-                selDict[res.segid].append(str(res.resid))
-
-            selStrL = []
-            for segid, residL in selDict.items():
-                selStrL.append("segid {} and resid {}".format(segid, " ".join(residL)))
-
-            if verbose:
-                print("Creating a smaller atom selection without isolated nodes.")
-
-            allSel = self.workU.select_atoms(*selStrL)
-
-            if verbose:
-                print("Creating a smaller universe without isolated nodes.")
-
-            # Merging a selection from the universe returns a new (and smaller) universe
-            self.workU = mda.core.universe.Merge(allSel)
-
-            if verbose:
-                print("Capture coordinates from selected nodes in previous universe.")
-
-            # We now create a new universe with coordinates from the selected residues
-            resObj = mdaAFF(lambda ag: ag.positions.copy(), allSel).run().results
-
-            # This checks the type of the MDAnalysis results. Prior to version 2.0.0,
-            # MDA returned a numpy.ndarray with the trajectory coordinates. After
-            # version 2.0.0, it returns a results object that contains the trajectory.
-            # With this check, the code can handle both APIs.
-            if not isinstance(resObj, np.ndarray):
-                resObj = resObj['timeseries']
-
-            if verbose:
-                print("Load coordinates from selected nodes in new universe.")
-
-            self.workU.load_new(resObj, format=mdaMemRead)
-
-            if verbose:
-                print("Recreate node-atom selection.")
-
-            # Regenerate selection of atoms that represent nodes.
-
-            # Builds list of selection statements
-            selStr = ["(resname {0} and name {1})".format(k, " ".join(v.keys()))
-                      for k, v in self.resNodeGroups.items()]
-
-            # Combines all statements into one selection string
-            selStr = " or ".join(selStr)
-
-            if verbose:
-                print("Selection string for atoms that represent network nodes:")
-                print(selStr)
-
-            self.nodesAtmSel = self.workU.select_atoms(selStr)
-
-            self.numNodes = self.nodesAtmSel.n_atoms
-
-            # Creates an array relating all atoms in the system to nodes.
-            self.atomToNode = np.full(shape=allSel.n_atoms,
-                                      fill_value=-1,
-                                      dtype=int)
-
-            print("Updating atom-to-node mapping...")
-
-            for indx, node in enumerate(self.progBar(self.nodesAtmSel.atoms,
-                                                     desc="Node",
-                                                     ascii=self.asciiMode)):
-
-                # Loops over all atoms in the residue related to the node
-                for atm in node.residue.atoms:
-
-                    # Checks if the atom name is listed for the node
-                    if atm.name in self.resNodeGroups[node.resname][node.name]:
-                        self.atomToNode[atm.ix] = indx
-
-            # Verification: checks if there are any "-1" left. If so,
-            # that atom was not assigned a node.
-            loneAtms = np.where(self.atomToNode < 0)[0]
-            if len(loneAtms) > 0:
-                print("\nERROR: atom assignment incomplete!")
-                print("The following atoms were not assigned a node:")
-                print(loneAtms)
-                print("Lone atoms (types and residues): ")
-                for atm in loneAtms:
-                    print(self.workU.atoms[atm])
-
-            #########################
-
-    def _filterContactsWindow(self, mat, notSameRes=True, notConsecutiveRes=False):
+    def _filterContactsWindow(self,
+                              mat: np.ndarray,
+                              notSameRes: bool = True,
+                              notConsecutiveRes: bool = False):
         """Filter contacts in a contact matrix.
 
         This function receives a contact matrix and guarantees that there will
@@ -1352,7 +1427,7 @@ class DNAproc:
                                  " ".join(self.resNodeGroups[prevRes.resname].keys())
                     prevResSel = prevResSel.select_atoms(prevSelStr)
 
-                    # Checks that it is not an ION
+                    # Checks that it is not an ION or Water residue from same segment
                     if prevRes.atoms.n_atoms > 1:
                         # Get the actual node(s) indice(s) from the previous residue
                         nodeIndxs = self.atomToNode[prevResSel.atoms.ix_array]
@@ -1384,7 +1459,10 @@ class DNAproc:
                             mat[trgtIndx, nodeIndx] = 0
 
     # TODO: reduce complexity - Flake8 marks it at 27
-    def calcCor(self, ncores=1, forceCalc=False, verbose=0):
+    def calcCor(self,
+                ncores: int = 1,
+                forceCalc: bool = False,
+                verbose: int = 0):
         """Main interface for correlation calculation.
 
         Calculates generalized correlation coefficients either in serial
@@ -1406,35 +1484,28 @@ class DNAproc:
                 even if they have been calculated before.
         """
 
-        if ncores <= 0:
-            print("ERROR: number of cores must be at least 1.")
-            return 1
+        assert isinstance(ncores, int)
+        assert isinstance(forceCalc, bool)
+        assert isinstance(verbose, int)
+
+        assert ncores >= 1, "Number of cores must be at least 1."
 
         # For 3D atom position data
         numDims = 3
 
-        print("Calculating correlations...\n")
+        if verbose > 0:
+            print("Calculating correlations...\n")
 
         winLen = int(np.floor(self.workU.trajectory.n_frames / self.numWinds))
-        print("Using window length of {} simulation steps.".format(winLen))
 
-        # Allocate the space for all correlations matrices (for all windows).
-        newMatrix = False
+        if verbose > 0:
+            print("Using window length of {} simulation steps.".format(winLen))
 
         # Check if the correlation matrix already exists (if this function is
         #   being executed again on the same system, with updated contacts), or
         #   if all correlations should be recalculated from scratch (in case the
-        #   trajectory was modified in some way).
-        try:
-            if self.corrMatAll is None:
-                newMatrix = True
-        except Exception:
-            if forceCalc:
-                newMatrix = True
-
-        # TODO: refactor if statement removing `newMatrix` variable.
-        #   if (self.corrMatAll is None) or forceCalc:
-        if newMatrix:
+        #   trajectory or contact matrix was modified in some way).
+        if (self.corrMatAll is None) or forceCalc:
             # Initialize the correlation matrix with zeros
             self.corrMatAll = np.zeros([self.numWinds, self.numNodes, self.numNodes],
                                        dtype=np.float64)
@@ -1444,7 +1515,7 @@ class DNAproc:
 
         # Pre-calculate psi values for all frames.
         # (allocation and initialization step)
-        psi = np.zeros([winLen + 1], dtype=np.float)
+        psi = np.zeros([winLen + 1], dtype=np.float64)
         psi[1] = -0.57721566490153
 
         # Pre-calculate psi values for all frames.
@@ -1460,7 +1531,8 @@ class DNAproc:
 
         if ncores == 1:
 
-            print("- > Using single-core implementation.")
+            if verbose > 0:
+                print("- > Using single-core implementation.")
 
             for winIndx in self.progBar(range(self.numWinds),
                                         total=self.numWinds,
@@ -1470,14 +1542,27 @@ class DNAproc:
                 beg = int(winIndx * winLen)
                 end = int((winIndx + 1) * winLen)
 
+                # Copy the current window's contact matrix into a mask
                 corMask = self.contactMatAll[winIndx, :, :]
+
+                # Remove from mask all contacts for which we already have correlations
+                # This will prevent re-calculation of known correlations
+                # and will restrict calculation to new contacts.
+                # ATTENTION: Contacts that have zero correlation will be recalculated!
                 corMask[np.where(self.corrMatAll[winIndx, :, :] > 0)] = 0
 
+                # Create pair list from mask
                 pairList = np.asarray(np.where(np.triu(corMask[:, :]) > 0)).T
 
                 if pairList.shape[0] == 0:
-                    print("No new correlations need to be calculated.")
+                    if verbose > 0:
+                        print(f"No new correlations to be calculated "
+                              f"in window {winIndx}.")
                     break
+                else:
+                    if verbose > 0:
+                        print(f"{pairList.shape[0]} new correlations to "
+                              f"be calculated in window {winIndx}.")
 
                 # Resets the trajectory NP array for the current window.
                 traj.fill(0)
@@ -1491,12 +1576,25 @@ class DNAproc:
                                             leave=False,
                                             ascii=self.asciiMode):
 
+                    if (atmList[0] == 215) and (atmList[1] == 216):
+                        print("Window", winIndx)
+                        print("First pair:", atmList)
+                        print("First pair traj shape:", traj[atmList, :, :].shape)
+                        print("First pair traj:", traj[atmList, :, :])
+
                     # Calls the Numba-compiled function.
                     corr = gc.calcMIRnumba2var(traj[atmList, :, :],
                                                winLen,
                                                numDims,
                                                self.kNeighb,
                                                psi, phi)
+
+                    if (atmList[0] == 215) and (atmList[1] == 216):
+                        print("Mutual Information:", corr)
+                        corr = max(0, corr)
+                        if corr:
+                            corr = np.sqrt(1 - np.exp(-2.0 / numDims * corr))
+                        print("Correlation:", corr)
 
                     # Assures that the Mutual Information estimate is not lower than zero.
                     corr = max(0, corr)
@@ -1510,7 +1608,8 @@ class DNAproc:
 
         else:
 
-            print("- > Using multi-core implementation with {} threads.".format(ncores))
+            if verbose > 0:
+                print(f"- > Using multi-core implementation with {ncores} threads.")
 
             for winIndx in self.progBar(range(self.numWinds),
                                         total=self.numWinds,
@@ -1536,8 +1635,10 @@ class DNAproc:
                 upTri = np.triu(self.corrMatAll[winIndx, :, :])
                 upTriT = np.asarray(np.where(upTri > 0)).T
                 precalcPairList = upTriT.tolist()
+
                 if 0 < len(precalcPairList):
-                    if verbose:
+
+                    if verbose > 0:
                         verStr = "Removing {} pairs with pre-calculated correlations."
                         print(verStr.format(len(precalcPairList)))
 
@@ -1589,13 +1690,17 @@ class DNAproc:
                 for proc in procs:
                     proc.join()
 
+        self._corr_mat_symmetric()
+
+    def _corr_mat_symmetric(self):
         # Sanity Check: Checks that the correlation and contact matrix is symmetric
         for win in range(self.numWinds):
             if not np.allclose(self.corrMatAll[win, :, :],
                                self.corrMatAll[win, :, :].T,
                                atol=0.1):
-                errStr = "ERROR: Correlation matrix for window {0} is NOT symmetric!!"
-                print(errStr.format(win))
+                err_str = f"ERROR: Correlation matrix for window {win} is " \
+                          f"NOT symmetric!!"
+                raise Exception(err_str)
 
     def calcCartesian(self, backend="serial", verbose=0):
         """Main interface for calculation of cartesian distances.
