@@ -110,6 +110,47 @@ def test_node_groups_unk_atoms(dnap_omp):
     dnap_omp.prepareNetwork(verbose=False, autocomp_groups=False)
 
 
+def test_node_groups_unk_atoms_verb(dnap_omp, capfd):
+    # This function REDUCES the OMP "P" atom group to raise an exception
+    # where "Found atoms not assigned to any node!"
+
+    # We now check the verbosity output of the previous check.
+
+    # Overwrite node group to force ERROR
+    node_grps = {"OMP": {}, "TIP3": {}}
+
+    # Define nodes and atom groups for the ligand
+    node_grps["OMP"]["N1"] = set("N1 C2 O2 N3 C4 O4 C5 C6 C7 OA OB".split())
+    node_grps["OMP"]["P"] = set(
+        "P OP1 OP2 OP3 O5' C5' C4' O4'".split())
+
+    node_grps["TIP3"]["OH2"] = set("OH2 H1 H2".split())
+    dnap_omp.setNodeGroups(node_grps)
+
+    dnap_omp.checkSystem()
+
+    dnap_omp.selectSystem(with_solvent=False)
+
+    try:
+        dnap_omp.prepareNetwork(verbose=2, autocomp_groups=False)
+    except:
+        # We catch the exception to allow PyTest to verify the verbose output.
+        pass
+
+    captured = capfd.readouterr()
+
+    # Main error message
+    assert "ERROR: Atoms were not assigned to any node!" in captured.out
+
+    # Atom indices for selected residues that were not assigned to any node group
+    assert "[1633 1634 1643 1644 1645 1646 1647]" in captured.out
+
+    test_str = "<Atom 1635: OT2 of type OC of resname LEU, resid 225 and segid ENZY>"
+    assert test_str in captured.out
+
+    test_str = "<Atom 1648: C1' of type CG3C51 of resname OMP, resid 301 and segid OMP>"
+    assert test_str in captured.out
+
 @pytest.mark.parametrize(("solv", "atm_grp"), [
         pytest.param(True,  {'OH2'}),
         pytest.param(False, {''}, marks=pytest.mark.xfail)])
