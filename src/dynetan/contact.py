@@ -23,7 +23,7 @@ MODE_ALL    = 0
 MODE_CAPPED = 1
 
 
-@jit('i8(i4, i8, i4)', nopython=True)
+@jit('i8(i8, i8, i8)', nopython=True)
 def getLinIndexNumba(src, trgt, n):
     """Conversion from 2D matrix indices to 1D triangular.
 
@@ -39,6 +39,7 @@ def getLinIndexNumba(src, trgt, n):
         int: 1D index in unwrapped triangular matrix.
 
     """
+    # PyTest-cov does not detect test coverage over JIT compiled Numba functions
 
     # https://stackoverflow.com/questions/27086195/linear-index-upper-triangular-matrix
     k = (n*(n-1)/2) - (n-src)*((n-src)-1)/2 + trgt - src - 1.0
@@ -79,6 +80,7 @@ def atmToNodeDist(numNodes, nAtoms, tmpDists, atomToNode,
             between *nodes*. This is a linearized upper triangular matrix.
 
     """
+    # PyTest-cov does not detect test coverage over JIT compiled Numba functions
 
     maxVal: Any = np.finfo(np.float64).max
 
