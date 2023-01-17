@@ -1203,9 +1203,10 @@ class DNAproc:
         self.contactMat = self.contactMat[:, nodeMask]
 
         if verbose > 0:
-            statusStr = "\nIsolated nodes removed. We now have {} nodes in " \
-                        "the system\n"
-            print(statusStr.format(self.contactMatAll[0].shape[0]))
+            if len(noContactNodesSel):
+                statusStr = "\nIsolated nodes removed. We now have {} nodes in " \
+                            "the system\n"
+                print(statusStr.format(self.contactMatAll[0].shape[0]))
             print("Running new contact matrix sanity check...")
 
         self.checkContactMat(verbose)
@@ -1213,7 +1214,7 @@ class DNAproc:
         #########################
         # Update Universe and network data
 
-        if verbose > 0:
+        if verbose > 0 and len(noContactNodesSel):
             print("\nUpdating Universe to reflect new node selection...")
 
         # Here we use the new node selection to find *all atoms* from residues
@@ -1235,18 +1236,18 @@ class DNAproc:
         for segid, residL in selDict.items():
             selStrL.append("segid {} and resid {}".format(segid, " ".join(residL)))
 
-        if verbose:
+        if verbose > 1:
             print("Creating a smaller atom selection without isolated nodes.")
 
         allSel = self.workU.select_atoms(*selStrL)
 
-        if verbose:
+        if verbose > 1:
             print("Creating a smaller universe without isolated nodes.")
 
         # Merging a selection from the universe returns a new (and smaller) universe
         self.workU = mda.core.universe.Merge(allSel)
 
-        if verbose:
+        if verbose > 1:
             print("Capture coordinates from selected nodes in previous universe.")
 
         # We now create a new universe with coordinates from the selected residues
@@ -1259,12 +1260,12 @@ class DNAproc:
         if not isinstance(resObj, np.ndarray):
             resObj = resObj['timeseries']
 
-        if verbose:
+        if verbose > 1:
             print("Load coordinates from selected nodes in new universe.")
 
         self.workU.load_new(resObj, format=mdaMemRead)
 
-        if verbose:
+        if verbose > 1:
             print("Recreate node-atom selection.")
 
         # Regenerate selection of atoms that represent nodes.
@@ -1276,7 +1277,7 @@ class DNAproc:
         # Combines all statements into one selection string
         selStr = " or ".join(selStr)
 
-        if verbose:
+        if verbose > 1:
             print("Selection string for atoms that represent network nodes:")
             print(selStr)
 
@@ -1289,7 +1290,8 @@ class DNAproc:
                                   fill_value=-1,
                                   dtype=int)
 
-        print("Updating atom-to-node mapping...")
+        if verbose > 0:
+            print("Updating atom-to-node mapping...")
 
         for indx, node in enumerate(self.progBar(self.nodesAtmSel.atoms,
                                                  desc="Node",
@@ -1308,7 +1310,7 @@ class DNAproc:
                        notSameRes: bool = True,
                        notConsecutiveRes: bool = False,
                        removeIsolatedNodes: bool = True,
-                       verbose: int = 0):
+                       verbose: int = 1):
         """Filters network contacts over the system.
 
         The function removes edges and nodes in preparation for network analysis.
@@ -1340,13 +1342,17 @@ class DNAproc:
         assert isinstance(removeIsolatedNodes, bool)
         assert isinstance(verbose, int)
 
+        if verbose > 0:
+            print("Filtering contacts in each window.")
+
         for winIndx in self.progBar(range(self.numWinds), total=self.numWinds,
                                     desc="Window", ascii=self.asciiMode):
             self._filterContactsWindow(self.contactMatAll[winIndx, :, :],
                                        notSameRes=notSameRes,
-                                       notConsecutiveRes=notConsecutiveRes)
+                                       notConsecutiveRes=notConsecutiveRes,
+                                       verbose=verbose)
 
-            if verbose > 0:
+            if verbose > 1:
                 print("Window:", winIndx)
 
             upTri = np.triu(self.contactMatAll[winIndx, :, :])
@@ -1354,7 +1360,7 @@ class DNAproc:
             totalPairs = self.contactMat.shape[0] * (self.contactMat.shape[0] - 1)
             totalPairs = int(totalPairs / 2)
 
-            if verbose > 0:
+            if verbose > 1:
                 verbStr = "We found {0:n} contacting pairs out of {1:n} " \
                           "total pairs of nodes."
                 print(verbStr.format(len(pairs), totalPairs))
@@ -1367,7 +1373,8 @@ class DNAproc:
     def _filterContactsWindow(self,
                               mat: np.ndarray,
                               notSameRes: bool = True,
-                              notConsecutiveRes: bool = False):
+                              notConsecutiveRes: bool = False,
+                              verbose: int = 0):
         """Filter contacts in a contact matrix.
 
         This function receives a contact matrix and guarantees that there will
@@ -1386,7 +1393,7 @@ class DNAproc:
         # Cycles over all nodes in the system. There may be several nodes per residue.
         for node in self.progBar(self.nodesAtmSel.atoms,
                                  desc="Node",
-                                 leave=(not self.asciiMode),
+                                 leave=(verbose > 1),
                                  ascii=self.asciiMode):
 
             # Get current node index
@@ -1656,6 +1663,8 @@ class DNAproc:
                 # Create queues that feed processes with node pairs, and gather results.
                 data_queue = mp.Queue()
                 results_queue = mp.Queue()
+
+                # Loads the node pairs in the input queue
                 for atmList in pairList:
                     data_queue.put(atmList)
 
