@@ -1550,13 +1550,22 @@ class DNAproc:
                 end = int((winIndx + 1) * winLen)
 
                 # Copy the current window's contact matrix into a mask
-                corMask = self.contactMatAll[winIndx, :, :]
+                corMask = self.contactMatAll[winIndx, :, :].copy()
 
                 # Remove from mask all contacts for which we already have correlations
                 # This will prevent re-calculation of known correlations
                 # and will restrict calculation to new contacts.
                 # ATTENTION: Contacts that have zero correlation will be recalculated!
-                corMask[np.where(self.corrMatAll[winIndx, :, :] > 0)] = 0
+                upTri = np.triu(self.corrMatAll[winIndx, :, :])
+                prev_res_ind = np.where(upTri > 0)
+                corMask[prev_res_ind] = 0
+
+                if 0 < prev_res_ind[0].shape[0]:
+
+                    if verbose > 0:
+                        verStr = f"Removing {prev_res_ind[0].shape[0]} pairs with " \
+                                 f"pre-calculated correlations in window {winIndx}."
+                        print(verStr)
 
                 # Create pair list from mask
                 pairList = np.asarray(np.where(np.triu(corMask[:, :]) > 0)).T
@@ -1583,25 +1592,12 @@ class DNAproc:
                                             leave=False,
                                             ascii=self.asciiMode):
 
-                    if (atmList[0] == 215) and (atmList[1] == 216):
-                        print("Window", winIndx)
-                        print("First pair:", atmList)
-                        print("First pair traj shape:", traj[atmList, :, :].shape)
-                        print("First pair traj:", traj[atmList, :, :])
-
                     # Calls the Numba-compiled function.
                     corr = gc.calcMIRnumba2var(traj[atmList, :, :],
                                                winLen,
                                                numDims,
                                                self.kNeighb,
                                                psi, phi)
-
-                    if (atmList[0] == 215) and (atmList[1] == 216):
-                        print("Mutual Information:", corr)
-                        corr = max(0, corr)
-                        if corr:
-                            corr = np.sqrt(1 - np.exp(-2.0 / numDims * corr))
-                        print("Correlation:", corr)
 
                     # Assures that the Mutual Information estimate is not lower than zero.
                     corr = max(0, corr)
@@ -1646,13 +1642,24 @@ class DNAproc:
                 if 0 < len(precalcPairList):
 
                     if verbose > 0:
-                        verStr = "Removing {} pairs with pre-calculated correlations."
-                        print(verStr.format(len(precalcPairList)))
+                        verStr = f"Removing {len(precalcPairList)} pairs with " \
+                                 f"pre-calculated correlations in window {winIndx}."
+                        print(verStr)
 
                     pairList = [pair for pair in pairList
                                 if pair not in precalcPairList]
 
                 pairList = np.asarray(pairList)
+
+                if pairList.shape[0] == 0:
+                    if verbose > 0:
+                        print(f"No new correlations to be calculated "
+                              f"in window {winIndx}.")
+                    break
+                else:
+                    if verbose > 0:
+                        print(f"{pairList.shape[0]} new correlations to "
+                              f"be calculated in window {winIndx}.")
 
                 # Resets the trajectory NP array for the current window.
                 traj.fill(0)
