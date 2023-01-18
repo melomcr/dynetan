@@ -220,19 +220,32 @@ def calcCorProc(traj, winLen, psi, phi, numDims, kNeighb, inQueue, outQueue):
 
     """
 
+    import queue  # So that we can catch the exceptions for empty queues
+
     # While we still have elements to process, get a new pair of nodes.
-    while not inQueue.empty():
+    # We verify if we sun out of elements by catching a termination flag
+    # in the queue. There is at least one termination flag per initiated process.
+    while True:
 
-        atmList = inQueue.get()
+        try:
+            atmList = inQueue.get(block=True, timeout=0.01)
+        except queue.Empty:
+            continue
+            # If we need to wait for longer for a new item,
+            # just continue the loop
+        else:
+            # The termination flag is an empty list
+            if len(atmList) == 0:
+                break
 
-        # Calls the Numba-compiled function.
-        corr = calcMIRnumba2var(traj[atmList, :, :], winLen, numDims, kNeighb,
-                                psi, phi)
+            # Calls the Numba-compiled function.
+            corr = calcMIRnumba2var(traj[atmList, :, :], winLen, numDims, kNeighb,
+                                    psi, phi)
 
-        # Assures that the Mutual Information estimate is not lower than zero.
-        corr = max(0, corr)
+            # Assures that the Mutual Information estimate is not lower than zero.
+            corr = max(0, corr)
 
-        # Determine generalized correlation coeff from the Mutual Information
-        corr = np.sqrt(1-np.exp(-corr*(2.0/3)))
+            # Determine generalized correlation coeff from the Mutual Information
+            corr = np.sqrt(1-np.exp(-corr*(2.0/3)))
 
-        outQueue.put((atmList, corr))
+            outQueue.put((atmList, corr))

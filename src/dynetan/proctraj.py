@@ -1671,6 +1671,12 @@ class DNAproc:
                 # Creates processes.
                 procs = []
                 for _ in range(ncores):
+
+                    # Include termination flags for the processes in the input queue
+                    # The termination flag is an empty list
+                    data_queue.put([])
+
+                    # Initialize process
                     proc = mp.Process(target=gc.calcCorProc,
                                       args=(traj,
                                             winLen,
