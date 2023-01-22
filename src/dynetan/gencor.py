@@ -104,7 +104,8 @@ def prepMIc(universe, traj, beg, end, numNodes, numDims):
 
 
 @jit('f8(f8[:,:,:], i4, i8, i4, f8[:], f8[:])', nopython=True)
-def calcMIRnumba2var(traj, numFrames, numDims, kNeighb, psi, phi):
+def calcMIRnumba2var(traj, numFrames, numDims,
+                     kNeighb, psi, phi):  # pragma: no cover
     """Calculate mutual information coefficients.
 
     This function estimates the mutual information coefficient based on
