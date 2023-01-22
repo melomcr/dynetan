@@ -51,6 +51,8 @@ from typing import Literal, Union, Any
 dist_modes_literal = Literal["all", "capped"]
 dist_modes = ["all", "capped"]
 
+backend_types_literal = Literal["serial", "openmp"]
+backend_types = ["serial", "openmp"]
 
 ##################################################
 ##################################################
@@ -663,7 +665,7 @@ class DNAproc:
 
         self.workU.load_new(resObj, format=mdaMemRead)
 
-    def prep_node_groups(self, autocomp_groups: bool = True):
+    def prep_node_groups(self, autocomp_groups: bool = True) -> None:
         """Prepare node groups and check system for unknown residues
 
         This function will load the user-defined node groups into this object
@@ -755,7 +757,7 @@ class DNAproc:
 
                 raise Exception(errorStr)
 
-    def _check_atom_to_node_mapping(self, verbose: int = 1):
+    def _check_atom_to_node_mapping(self, verbose: int = 1) -> None:
         # Verification: checks if there are any "-1" left.
         # If so, that atom was not assigned a node.
         loneAtms = np.where(self.atomToNode < 0)[0]
@@ -775,7 +777,7 @@ class DNAproc:
 
     def prepareNetwork(self,
                        verbose: int = 0,
-                       autocomp_groups: bool = True):
+                       autocomp_groups: bool = True) -> None:
         """Prepare network representation of the system.
 
         Checks if we know how to treat all types of residues in the final system
@@ -887,12 +889,10 @@ class DNAproc:
         if verbose:
             print("Nodes are ready for network analysis.")
 
-        return None
-
     def alignTraj(self,
                   select_str: str = "",
                   in_memory: bool = True,
-                  verbose: int = 0):
+                  verbose: int = 0) -> None:
         """
         Wrapper function for MDAnalysis trajectory alignment tool.
 
@@ -938,7 +938,7 @@ class DNAproc:
                      beg: int = 0,
                      end: int = -1,
                      stride: int = 1,
-                     verbose: int = 0):
+                     verbose: int = 0) -> None:
         """Wrapper for contact calculation per trajectory window.
 
         Pre allocates the necessary temporary NumPy arrays to speed up calculations.
@@ -1019,7 +1019,7 @@ class DNAproc:
                             self.nodeGroupIndicesNPAux,
                             distMode=self.distanceMode)
 
-    def findContacts(self, stride: int = 1, verbose: int = 1):
+    def findContacts(self, stride: int = 1, verbose: int = 1) -> None:
         """Finds all nodes in contact.
 
         This is the main user interface access to calculate nodes in contact.
@@ -1100,7 +1100,7 @@ class DNAproc:
 
         self.checkContactMat(verbose=verbose)
 
-    def _genContactMatrix(self):
+    def _genContactMatrix(self) -> None:
         """Update unified contact matrix for all windows.
         """
         # Allocate a unified contact matrix for all windows.
@@ -1113,7 +1113,7 @@ class DNAproc:
         # Creates binary mask with pairs of nodes in contact
         self.contactMat = np.where(self.contactMat > 0, 1, 0)
 
-    def checkContactMat(self, verbose: int = 1):
+    def checkContactMat(self, verbose: int = 1) -> None:
         """Sanity checks for contact matrix for all windows.
 
         Checks if the contact matrix is symmetric and if there are any nodes
@@ -1149,7 +1149,7 @@ class DNAproc:
             print("(That's {0}%, by the way)".format(pairPc))
 
     # TODO: reduce complexity - Flake8 marks it at 20
-    def _remove_isolated(self, verbose: int = 0):
+    def _remove_isolated(self, verbose: int = 0) -> None:
 
         if verbose > 0:
             print("\nRemoving isolated nodes...\n")
@@ -1310,7 +1310,7 @@ class DNAproc:
                        notSameRes: bool = True,
                        notConsecutiveRes: bool = False,
                        removeIsolatedNodes: bool = True,
-                       verbose: int = 1):
+                       verbose: int = 1) -> None:
         """Filters network contacts over the system.
 
         The function removes edges and nodes in preparation for network analysis.
@@ -1374,7 +1374,7 @@ class DNAproc:
                               mat: np.ndarray,
                               notSameRes: bool = True,
                               notConsecutiveRes: bool = False,
-                              verbose: int = 0):
+                              verbose: int = 0) -> None:
         """Filter contacts in a contact matrix.
 
         This function receives a contact matrix and guarantees that there will
@@ -1469,7 +1469,7 @@ class DNAproc:
     def calcCor(self,
                 ncores: int = 1,
                 forceCalc: bool = False,
-                verbose: int = 0):
+                verbose: int = 0) -> None:
         """Main interface for correlation calculation.
 
         Calculates generalized correlation coefficients either in serial
@@ -1714,7 +1714,7 @@ class DNAproc:
 
         self._corr_mat_symmetric()
 
-    def _corr_mat_symmetric(self):
+    def _corr_mat_symmetric(self) -> None:
         # Sanity Check: Checks that the correlation and contact matrix is symmetric
         for win in range(self.numWinds):
             if not np.allclose(self.corrMatAll[win, :, :],
@@ -1724,7 +1724,9 @@ class DNAproc:
                           f"NOT symmetric!!"
                 raise Exception(err_str)
 
-    def calcCartesian(self, backend="serial", verbose=0):
+    def calcCartesian(self,
+                      backend: backend_types_literal = "serial",
+                      verbose: int = 1) -> None:
         """Main interface for calculation of cartesian distances.
 
         Determines the shortest cartesian distance between atoms in node groups
@@ -1743,7 +1745,17 @@ class DNAproc:
             verbose (int) : Defines verbosity of output.
         """
 
-        print("Calculating cartesian distances...\n")
+        assert isinstance(verbose, int)
+        assert isinstance(backend, str)
+
+        if not backend:
+            backend = backend_types[0]
+
+        assert backend in backend_types, f"Only allowed backend options " \
+                                         f"are {backend_types}"
+
+        if verbose > 0:
+            print("Calculating cartesian distances...\n")
 
         # numFramesDists is used in the calculation of statistics!
         numFramesDists = self.numSampledFrames * self.numWinds
@@ -1755,14 +1767,17 @@ class DNAproc:
 
         self.nodeDists = np.zeros([4, int(self.numNodes * (self.numNodes - 1) / 2)],
                                   dtype=np.float64)
-        outStr = "Sampling a total of {0} frames from {1} windows ({2} per window)..."
-        print(outStr.format(numFramesDists, self.numWinds, self.numSampledFrames))
+
+        if verbose > 0:
+            outStr = "Sampling a total of {0} frames from " \
+                     "{1} windows ({2} per window)..."
+            print(outStr.format(numFramesDists, self.numWinds, self.numSampledFrames))
 
         steps = int(np.floor(len(self.workU.trajectory) / numFramesDists))
         maxFrame = numFramesDists * steps
 
         # Mean distance
-        for ts in self.progBar(self.workU.trajectory[0:maxFrame:steps],
+        for _ in self.progBar(self.workU.trajectory[0:maxFrame:steps],
                                total=numFramesDists,
                                desc="MEAN: Timesteps",
                                ascii=self.asciiMode):
@@ -1783,7 +1798,7 @@ class DNAproc:
         self.nodeDists[3, :] = self.nodeDists[0, :]
 
         # Standard Error of the Mean
-        for ts in self.progBar(self.workU.trajectory[0:maxFrame:steps],
+        for _ in self.progBar(self.workU.trajectory[0:maxFrame:steps],
                                total=numFramesDists,
                                desc="SEM/MIN/MAX: Timesteps",
                                ascii=self.asciiMode):

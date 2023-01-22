@@ -24,7 +24,7 @@ MODE_CAPPED = 1
 
 
 @jit('i8(i8, i8, i8)', nopython=True)
-def getLinIndexNumba(src, trgt, n):
+def getLinIndexNumba(src, trgt, n):  # pragma: no cover
     """Conversion from 2D matrix indices to 1D triangular.
 
     Converts from 2D matrix indices to 1D (n*(n-1)/2) unwrapped triangular
@@ -48,7 +48,9 @@ def getLinIndexNumba(src, trgt, n):
 
 @jit('void(i8, i8, f8[:], i8[:], i8[:], i8[:], f8[:])', nopython=True)
 def atmToNodeDist(numNodes, nAtoms, tmpDists, atomToNode,
-                  nodeGroupIndicesNP, nodeGroupIndicesNPAux, nodeDists):
+                  nodeGroupIndicesNP,
+                  nodeGroupIndicesNPAux,
+                  nodeDists):  # pragma: no cover
     """Translates MDAnalysis distance calculation to node distance matrix.
 
     This function is JIT compiled by Numba to optimize the search for shortest
@@ -162,13 +164,13 @@ def calcDistances(selection, numNodes, nAtoms, atomToNode,  cutoffDist,
         backend (str) : Controls how MDAnalysis will perform its distance
             calculations. Options are  `serial` and `openmp`. This option is
             ignored if the distance mode is not "all".
-        distMode (str): Distance calculation method. Options are 0
+        distMode (int): Distance calculation method. Options are 0
             (for mode "all") and 1 (for mode "capped").
         verbose (int): Controls informational output.
 
     """
 
-    if verbose:
+    if verbose > 1:
         msgStr = "There are {} nodes and {} atoms in this system."
         print(msgStr.format(numNodes, nAtoms))
 
@@ -180,7 +182,7 @@ def calcDistances(selection, numNodes, nAtoms, atomToNode,  cutoffDist,
         tmpDists: npt.NDArray[np.float64] = \
             np.zeros(int(nAtoms*(nAtoms-1)/2), dtype=np.float64)
 
-        if verbose:
+        if verbose > 1:
             end = timer()
             print("Time for matrix:", timedelta(seconds=end-start))
 
@@ -190,7 +192,7 @@ def calcDistances(selection, numNodes, nAtoms, atomToNode,  cutoffDist,
         # serial vs OpenMP
         mdadist.self_distance_array(selection.positions, result=tmpDists, backend=backend)
 
-        if verbose:
+        if verbose > 1:
             end = timer()
             print("Time for contact calculation:", timedelta(seconds=end-start))
 
@@ -198,7 +200,7 @@ def calcDistances(selection, numNodes, nAtoms, atomToNode,  cutoffDist,
 
         tmpDists = np.full(int(nAtoms*(nAtoms-1)/2), cutoffDist*2, dtype=float)
 
-        if verbose:
+        if verbose > 1:
             end = timer()
             print("Time for matrix:", timedelta(seconds=end-start))
 
@@ -213,7 +215,7 @@ def calcDistances(selection, numNodes, nAtoms, atomToNode,  cutoffDist,
                                                            method='pkdtree',
                                                            return_distances=True)
 
-        if verbose:
+        if verbose > 1:
             end = timer()
             print("Time for contact calculation:", timedelta(seconds=end-start))
 
@@ -238,11 +240,11 @@ def calcDistances(selection, numNodes, nAtoms, atomToNode,  cutoffDist,
             ijLI = getLinIndexNumba(i, j, nAtoms)
             tmpDists[ijLI] = distances[k]
 
-        if verbose:
+        if verbose > 1:
             end = timer()
             print("Time for loading distances:", timedelta(seconds=end-start))
 
-    if verbose:
+    if verbose > 1:
         print("running atmToNodeDist...")
         start = timer()
 
@@ -250,7 +252,7 @@ def calcDistances(selection, numNodes, nAtoms, atomToNode,  cutoffDist,
     atmToNodeDist(numNodes, nAtoms, tmpDists, atomToNode, nodeGroupIndicesNP,
                   nodeGroupIndicesNPAux, nodeDists)
 
-    if verbose:
+    if verbose > 1:
         end = timer()
         print("Time for atmToNodeDist:", timedelta(seconds=end-start))
 
