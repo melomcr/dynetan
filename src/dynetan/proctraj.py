@@ -1828,7 +1828,7 @@ class DNAproc:
             # SEM:  STD / sqrt(N)
             self.nodeDists[1, :] = self.nodeDists[1, :] / np.sqrt(numFramesDists)
 
-    def calcGraphInfo(self):
+    def calcGraphInfo(self) -> None:
         """Create a graph from the correlation matrix.
 
         Uses NetworkX to create a graph representation of the network.
@@ -1872,7 +1872,7 @@ class DNAproc:
             degree_dict = dict(self.nxGraphs[win].degree(self.nxGraphs[win].nodes()))
             nx.set_node_attributes(self.nxGraphs[win], degree_dict, 'degree')
 
-    def getDegreeDict(self, window=0):
+    def getDegreeDict(self, window: int = 0) -> dict:
         """Compiles a dictionary with node degrees.
 
         This wrapper function uses NetworkX graph object to list the
