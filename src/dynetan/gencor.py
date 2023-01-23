@@ -224,7 +224,7 @@ def calcCorProc(traj, winLen, psi, phi, numDims, kNeighb, inQueue, outQueue):
     import queue  # So that we can catch the exceptions for empty queues
 
     # While we still have elements to process, get a new pair of nodes.
-    # We verify if we sun out of elements by catching a termination flag
+    # We verify if we run out of elements by catching a termination flag
     # in the queue. There is at least one termination flag per initiated process.
     while True:
 
