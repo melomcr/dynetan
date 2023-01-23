@@ -1882,9 +1882,14 @@ class DNAproc:
             window (int) : Simulation window.
 
         """
+        assert isinstance(window, int)
+
+        if window < 0 or window >= self.numWinds:
+            raise Exception(f"Requested window {window} out of range.")
+
         return dict(self.nxGraphs[window].degree(self.nxGraphs[window].nodes()))
 
-    def calcOptPaths(self, ncores=1):
+    def calcOptPaths(self, ncores: int = 1) -> None:
         """Main interface for optimal path calculations.
 
         Calculates optimal paths between all nodes in the network using
@@ -1902,13 +1907,14 @@ class DNAproc:
 
         """
 
+        assert isinstance(ncores, int)
+
         if ncores <= 0:
-            print("ERROR: number of cores must be at least 1.")
-            return 1
+            raise Exception("ERROR: number of cores must be at least 1.")
 
         # Sets the network distance array.
         self.distsAll = np.zeros([self.numWinds, self.numNodes, self.numNodes],
-                                 dtype=np.float)
+                                 dtype=np.float64)
 
         self.preds = {}
         for i in range(self.numWinds):
@@ -1945,19 +1951,25 @@ class DNAproc:
             # Creates processes.
             procs = []
             for _ in range(ncores):
+
+                # Include termination flags for the processes in the input queue
+                # The termination flag is an invalid window index of -1.
+                inQueue.put(-1)
+
                 procs.append(mp.Process(target=nw.calcOptPathPar,
                                         args=(self.nxGraphs, inQueue, outQueue)))
                 procs[-1].start()
 
-            for win in self.progBar(range(self.numWinds), total=self.numWinds,
-                                    desc="Window", ascii=self.asciiMode):
+            for _ in self.progBar(range(self.numWinds),
+                                  total=self.numWinds,
+                                  desc="Window",
+                                  ascii=self.asciiMode):
                 # Waits until the next result is available,
                 # then stores it in the object.
                 result = outQueue.get()
 
-                win = result[0]
-                self.distsAll[win, :, :] = np.copy(result[1])
-                self.preds[win] = copy.deepcopy(result[2])
+                self.distsAll[result[0], :, :] = np.copy(result[1])
+                self.preds[result[0]] = copy.deepcopy(result[2])
 
             # Joins processes.
             for proc in procs:
@@ -1976,7 +1988,7 @@ class DNAproc:
         self.maxDirectDist = max([self.distsAll[win, self.corrMatAll[win, :, :] > 0].max()
                                   for win in range(self.numWinds)])
 
-    def getPath(self, nodeI, nodeJ):
+    def getPath(self, node_i: int, node_j: int) -> list:
         """Wrapper for NetworkX reconstruct_path.
 
         The function calls NetworkX's *reconstruct_path* to return the list of
@@ -1985,16 +1997,20 @@ class DNAproc:
         (see :py:func:`~dynetan.proctraj.DNAproc.calcOptPaths`).
 
         Args:
-            nodeI (int) : Node ID.
-            nodeJ (int) : Node ID.
+            node_i (int) : Node ID.
+            node_j (int) : Node ID.
 
         Returns:
             List of node IDs.
 
         """
-        return nx.reconstruct_path(nodeI, nodeJ, self.preds)
 
-    def calcBetween(self, ncores=1):
+        assert isinstance(node_i, int)
+        assert isinstance(node_j, int)
+
+        return nx.reconstruct_path(node_i, node_j, self.preds)
+
+    def calcBetween(self, ncores: int = 1) -> None:
         """Main interface for betweeness calculations.
 
         Calculates betweenness for all nodes in the network using NetworkX
@@ -2011,9 +2027,10 @@ class DNAproc:
 
         """
 
+        assert isinstance(ncores, int)
+
         if ncores <= 0:
-            print("ERROR: number of cores must be at least 1.")
-            return 1
+            raise Exception("ERROR: number of cores must be at least 1.")
 
         self.btws = {}
 
@@ -2048,20 +2065,23 @@ class DNAproc:
             # Creates processes.
             procs = []
             for _ in range(ncores):
+                # Include termination flags for the processes in the input queue
+                # The termination flag is an invalid window index of -1.
+                inQueue.put(-1)
+
                 procs.append(mp.Process(target=nw.calcBetweenPar,
                                         args=(self.nxGraphs, inQueue, outQueue)))
                 procs[-1].start()
 
-            for win in self.progBar(range(self.numWinds),
-                                    total=self.numWinds,
-                                    desc="Window",
-                                    ascii=self.asciiMode):
+            for _ in self.progBar(range(self.numWinds),
+                                  total=self.numWinds,
+                                  desc="Window",
+                                  ascii=self.asciiMode):
                 # Waits until the next result is available,
                 # then stores it in the object.
                 result = outQueue.get()
 
-                win = result[0]
-                self.btws[win] = copy.deepcopy(result[1])
+                self.btws[result[0]] = copy.deepcopy(result[1])
 
             # Joins processes.
             for proc in procs:
