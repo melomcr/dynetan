@@ -1988,7 +1988,7 @@ class DNAproc:
         self.maxDirectDist = max([self.distsAll[win, self.corrMatAll[win, :, :] > 0].max()
                                   for win in range(self.numWinds)])
 
-    def getPath(self, node_i: int, node_j: int) -> list:
+    def getPath(self, node_i: int, node_j: int, window: int = 0) -> list:
         """Wrapper for NetworkX reconstruct_path.
 
         The function calls NetworkX's *reconstruct_path* to return the list of
@@ -1999,16 +1999,18 @@ class DNAproc:
         Args:
             node_i (int) : Node ID.
             node_j (int) : Node ID.
+            window (int) : Simulation window.
 
         Returns:
             List of node IDs.
 
         """
 
-        assert isinstance(node_i, int)
-        assert isinstance(node_j, int)
+        assert isinstance(node_i, (int, np.integer))
+        assert isinstance(node_j, (int, np.integer))
+        assert isinstance(window, (int, np.integer))
 
-        return nx.reconstruct_path(node_i, node_j, self.preds)
+        return nx.reconstruct_path(node_i, node_j, self.preds[window])
 
     def calcBetween(self, ncores: int = 1) -> None:
         """Main interface for betweeness calculations.

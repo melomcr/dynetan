@@ -1,4 +1,5 @@
 import pytest
+import numpy as np
 import networkx as nx
 
 from .test_proctraj_checksys_selectsys import test_data_dir  # NOQA - PyCharm
@@ -7,60 +8,225 @@ from .test_proctraj_corr import dnap_omp_loaded  # NOQA - PyCharm
 from .test_proctraj_cartesian import load_sys_solv_mode # NOQA - PyCharm
 
 
-def test_calc_graph(dnap_omp):
-    # NumNodes, NumEdges, Density, Transitivity, resname, resid
-    ref_graph_data = [(217, 516, 0.022, 0.1638, "LEU", 122),
-                      (217, 463, 0.0198, 0.1687, "TYR", 154)]
+class TestGraph:
+    ligandSegID = "OMP"
 
-    from operator import itemgetter
-    from dynetan.toolkit import getSelFromNode
+    def test_calc_graph(self, dnap_omp):
+        # NumNodes, NumEdges, Density, Transitivity, resname, resid
+        ref_graph_data = [(217, 516, 0.022, 0.1638, "LEU", 122),
+                          (217, 463, 0.0198, 0.1687, "TYR", 154)]
 
-    dnap = load_sys_solv_mode(dnap_omp, False, "all")
+        from operator import itemgetter
+        from dynetan.toolkit import getSelFromNode
 
-    dnap.calcCartesian(backend="serial", verbose=0)
+        dnap = load_sys_solv_mode(dnap_omp, False, "all")
 
-    dnap.calcGraphInfo()
+        dnap.calcCartesian(backend="serial", verbose=0)
 
-    for wind_i in range(dnap.numWinds):
-        assert len(dnap.nxGraphs[wind_i].nodes) == ref_graph_data[wind_i][0]
-        assert len(dnap.nxGraphs[wind_i].edges) == ref_graph_data[wind_i][1]
+        dnap.calcGraphInfo()
 
-        density = round(nx.density(dnap.nxGraphs[wind_i]), 4)
-        assert density == ref_graph_data[wind_i][2]
+        for wind_i in range(dnap.numWinds):
+            assert len(dnap.nxGraphs[wind_i].nodes) == ref_graph_data[wind_i][0]
+            assert len(dnap.nxGraphs[wind_i].edges) == ref_graph_data[wind_i][1]
 
-        transitivity = round(nx.transitivity(dnap.nxGraphs[wind_i]), 4)
-        assert transitivity == ref_graph_data[wind_i][3]
+            density = round(nx.density(dnap.nxGraphs[wind_i]), 4)
+            assert density == ref_graph_data[wind_i][2]
 
-        sorted_degree = sorted(dnap.getDegreeDict(wind_i).items(),
-                               key=itemgetter(1), reverse=True)
+            transitivity = round(nx.transitivity(dnap.nxGraphs[wind_i]), 4)
+            assert transitivity == ref_graph_data[wind_i][3]
 
-        node, degree = sorted_degree[0]
+            sorted_degree = sorted(dnap.getDegreeDict(wind_i).items(),
+                                   key=itemgetter(1), reverse=True)
 
-        sel_str = getSelFromNode(node, dnap.nodesAtmSel)
+            node, degree = sorted_degree[0]
 
-        resname = ref_graph_data[wind_i][4]
-        resid = ref_graph_data[wind_i][5]
-        ref_str = f"resname {resname} and resid {resid} and segid ENZY"
+            sel_str = getSelFromNode(node, dnap.nodesAtmSel)
 
-        assert ref_str == sel_str
+            resname = ref_graph_data[wind_i][4]
+            resid = ref_graph_data[wind_i][5]
+            ref_str = f"resname {resname} and resid {resid} and segid ENZY"
 
-# @pytest.mark.parametrize(
-#     ("num_cores", "ref_graph_data"), [
-#         pytest.param(1,  [(217, 539), (217, 474)]),
-#         pytest.param(2, [(217, 539, 0.023, 0.174),
-#                              (217, 474, 0.0202, 0.1711)])
-#     ])
-# def test_calc_graph_parallel(dnap_omp, num_cores, ref_graph_data):
-#
-#     dnap = load_sys_solv_mode(dnap_omp, False, "all")
-#
-#     dnap.calcCartesian(backend="serial", verbose=0)
-#
-#     # calculate optimal paths
-#     print("Calculating optimal paths...")
-#     dnap.calcOptPaths(ncores=num_cores)
-#
-#     print("Calculating edge betweeness...")
-#     # calculate betweeness values
-#     dnap.calcBetween(ncores=num_cores)
-#
+            assert ref_str == sel_str
+
+    @pytest.mark.parametrize("window", [
+        pytest.param(0),
+        pytest.param(1),
+        pytest.param(-1, marks=pytest.mark.xfail),
+        pytest.param(10, marks=pytest.mark.xfail)])
+    def test_get_degree_dict(self, dnap_omp, window):
+        """
+        Tests getDegreeDict for window out of range
+        """
+        dnap = load_sys_solv_mode(dnap_omp, False, "all")
+
+        dnap.calcGraphInfo()
+
+        dnap.getDegreeDict(window)
+
+    @pytest.mark.parametrize(
+        "num_cores", [
+            pytest.param(1, ),
+            pytest.param(2, ),
+            pytest.param(-1, marks=pytest.mark.xfail),
+        ])
+    def test_calc_paths_parallel(self, dnap_omp, num_cores):
+
+        from dynetan.toolkit import getNodeFromSel, getPath
+
+        dnap = load_sys_solv_mode(dnap_omp, False, "all")
+        dnap.calcGraphInfo()
+
+        # calculate optimal paths
+        dnap.calcOptPaths(ncores=num_cores)
+
+        trgtNodes = getNodeFromSel("segid " + self.ligandSegID,
+                                   dnap.nodesAtmSel,
+                                   dnap.atomToNode)
+
+        enzNode = getNodeFromSel("segid ENZY and resname GLU and resid 115",
+                                 dnap.nodesAtmSel,
+                                 dnap.atomToNode)
+
+        # For window 0
+        ref_list = [104, 74, 76, 58, 85, 216]
+
+        # First using the toolkit function
+        opt_path = getPath(trgtNodes[1], enzNode[0],
+                           dnap.nodesAtmSel, dnap.preds, 0)
+
+        assert list(opt_path) == ref_list
+
+        # The using the object function
+        opt_path = dnap.getPath(enzNode[0], trgtNodes[1], 0)
+
+        assert list(opt_path) == ref_list
+
+        # For window 1
+        ref_list = [104, 100, 98, 62, 84, 110, 112, 216]
+
+        # First using the toolkit function
+        opt_path = getPath(trgtNodes[1], enzNode[0],
+                           dnap.nodesAtmSel, dnap.preds, 1)
+
+        assert list(opt_path) == ref_list
+
+        # The using the object function
+        opt_path = dnap.getPath(enzNode[0], trgtNodes[1], 1)
+
+        assert list(opt_path) == ref_list
+
+    @pytest.mark.parametrize(
+        "num_cores", [
+            pytest.param(1, ),
+            pytest.param(2, ),
+            pytest.param(-1, marks=pytest.mark.xfail),
+        ])
+    def test_calc_betweens_parallel(self, dnap_omp, num_cores):
+        from itertools import islice
+
+        dnap = load_sys_solv_mode(dnap_omp, False, "all")
+        dnap.calcGraphInfo()
+
+        # Calculate betweeness values
+        dnap.calcBetween(ncores=num_cores)
+
+        # For window 0
+        # (32, 57) 0.05792 0.13400926315561176
+        for node_pair, betweenness in islice(dnap.btws[0].items(), 1):
+            node_i = node_pair[0]
+            node_j = node_pair[1]
+            btw = round(betweenness, 5)
+
+            assert node_i == 32
+            assert node_j == 57
+            assert btw == 0.05792
+
+        # For window 1
+        # (84, 110) 0.07405 0.13400926315561176
+        for node_pair, betweenness in islice(dnap.btws[1].items(), 1):
+            node_i = node_pair[0]
+            node_j = node_pair[1]
+            btw = round(betweenness, 5)
+
+            assert node_i == 84
+            assert node_j == 110
+            assert btw == 0.07405
+
+    def test_calc_eigen(self, dnap_omp):
+
+        dnap = load_sys_solv_mode(dnap_omp, False, "all")
+        dnap.calcGraphInfo()
+
+        ##############################
+
+        dnap.calcEigenCentral()
+
+        # Window, Node, Eigenvector Centrality
+        ref_vals = [[0, 0,   0.2518],
+                    [0, 215, 0.10615],
+                    [0, 216, 0.04137],
+                    [1, 0,   0.00585],
+                    [1, 215, 0.00055],
+                    [1, 216, 0.00731]
+                    ]
+
+        for window, node, ref_val in ref_vals:
+            ev_val = round(dnap.nxGraphs[window].nodes[node]['eigenvector'], 5)
+            assert ev_val == ref_val
+
+    @pytest.mark.parametrize(
+        "with_eigen", [
+            pytest.param(True, ),
+            pytest.param(False, ),
+        ])
+    def test_calc_communities(self, dnap_omp, with_eigen):
+        """
+        Community calculation uses a stochastic algorithm, so the number of
+        communities and their labels can vary between executions.
+
+        We will test if communities were assigned, and (if they were calculated
+        after eigenvector centralities were calculated) if the first community
+        was
+
+        """
+        dnap = load_sys_solv_mode(dnap_omp, False, "all")
+        dnap.calcGraphInfo()
+
+        # dnap.calcOptPaths(ncores=2)
+        # dnap.calcBetween(ncores=2)
+
+        ##############################
+
+        if with_eigen:
+            dnap.calcEigenCentral()
+
+        dnap.calcCommunities()
+
+        ##############################
+
+        # Check that communities were assigned to nodes
+        for window in range(2):
+            for node in dnap.nxGraphs[window].nodes:
+                assert 'modularity' in dnap.nxGraphs[window].nodes[node].keys()
+
+            # We expect multiple community labels
+            assert len(dnap.nodesComm[window]["commLabels"])
+
+            assert "commOrderSize" in dnap.nodesComm[window].keys()
+
+            if with_eigen:
+                assert "commOrderEigenCentr" in dnap.nodesComm[window].keys()
+
+                # Here we can test if the first community actually has the node
+                # with the highest eigenvalue centrality
+                ev_tmp = [(node, dnap.nxGraphs[window].nodes[node]['eigenvector'])
+                          for node in dnap.nxGraphs[window].nodes]
+                ev_tmp.sort(key=lambda x: x[1], reverse=True)
+                # print(f"Node {ev_tmp[0][0]} centrality {round(ev_tmp[0][1], 5)}")
+                ref_ev = round(ev_tmp[0][1], 5)
+
+                first_com = dnap.nodesComm[window]["commOrderEigenCentr"][0]
+                first_node = dnap.nodesComm[window]["commNodes"][first_com][0]
+
+                val = round(dnap.nxGraphs[window].nodes[first_node]['eigenvector'], 5)
+                assert val == ref_ev
