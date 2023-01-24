@@ -65,6 +65,8 @@ class TestPackageSysVerificationSelection:
     methods implemented in DyNetAn.
     """
 
+    xfail_strict = pytest.mark.xfail(strict=True)
+
     def test_load_data(self, test_data_dir):
         psfFile  = os.path.join(test_data_dir, psf_fn_omp)
         dcdFiles = [os.path.join(test_data_dir, dcd_fn_omp)]
@@ -79,7 +81,7 @@ class TestPackageSysVerificationSelection:
         dnap.loadSystem(psfFile, dcdFiles[0])
         assert len(dnap.getU().trajectory) == 20
 
-    @pytest.mark.xfail(raises=AssertionError)
+    @pytest.mark.xfail(raises=AssertionError, strict=True)
     def test_exist_universe(self):
         dnap = dna.proctraj.DNAproc(notebookMode=False)
         dnap.checkSystem()
@@ -109,9 +111,9 @@ class TestPackageSysVerificationSelection:
         assert dnap_omp.notSelSegidSet == expect_not_sel_segid
 
     @pytest.mark.parametrize(("solv", "sel", "verb"), [
-        pytest.param(0, "all", 0, marks=pytest.mark.xfail),
-        pytest.param(True, None, 0, marks=pytest.mark.xfail),
-        pytest.param(True, "all", False, marks=pytest.mark.xfail)])
+        pytest.param(0, "all", 0, marks=xfail_strict),
+        pytest.param(True, None, 0, marks=xfail_strict),
+        pytest.param(True, "all", "False", marks=xfail_strict)],)
     def test_select_system(self, dnap_omp, solv, sel, verb):
         dnap_omp.checkSystem()
         dnap_omp.selectSystem(with_solvent=solv,
@@ -128,7 +130,7 @@ class TestPackageSysVerificationSelection:
 
         assert dnap_omp.notSelSegidSet is not None
 
-    @pytest.mark.xfail()
+    @pytest.mark.xfail(strict=True)
     def test_select_system_condition(self, test_data_dir):
 
         psfFile = os.path.join(test_data_dir, psf_fn_omp)

@@ -538,11 +538,10 @@ class DNAproc:
             self.checkSystem()
 
         if (not with_solvent) and (not self.solventNames):
-            print("ERROR: Automatic removal of all solvent molecules can only "
-                  "happen if we have a list of solvent residue names, but no "
-                  "solvent names were provided.")
-            print("Aborting function call.")
-            return
+            err_str = "ERROR: Automatic removal of all solvent molecules can " \
+                      "only happen if we have a list of solvent residue names, " \
+                      "but no solvent names were provided. Aborting function call."
+            raise Exception(err_str)
 
         if input_sel_str.strip():
             print("Using user-defined selection string:")
