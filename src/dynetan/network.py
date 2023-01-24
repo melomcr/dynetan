@@ -38,7 +38,7 @@ def calcOptPathPar(nx_graphs: any, in_queue: Queue, out_queue: Queue):
 
         try:
             win = in_queue.get(block=True, timeout=0.01)
-        except queue.Empty:
+        except queue.Empty:  # pragma: no cover
             continue
             # If we need to wait for longer for a new item,
             # just continue the loop
@@ -85,7 +85,7 @@ def calcBetweenPar(nx_graphs: any, in_queue: Queue, out_queue: Queue):
 
         try:
             win = in_queue.get(block=True, timeout=0.01)
-        except queue.Empty:
+        except queue.Empty:  # pragma: no cover
             continue
             # If we need to wait for longer for a new item,
             # just continue the loop

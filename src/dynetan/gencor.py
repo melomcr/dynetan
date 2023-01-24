@@ -230,7 +230,7 @@ def calcCorProc(traj, winLen, psi, phi, numDims, kNeighb, inQueue, outQueue):
 
         try:
             atmList = inQueue.get(block=True, timeout=0.01)
-        except queue.Empty:
+        except queue.Empty:  # pragma: no cover
             continue
             # If we need to wait for longer for a new item,
             # just continue the loop
