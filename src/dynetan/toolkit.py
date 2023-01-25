@@ -192,6 +192,8 @@ def getCartDist(src, trgt, numNodes, nodeDists, distype=0):
 
     """
 
+    assert nodeDists is not None, "Cartesian distances not yet calculated!"
+
     if src == trgt:
         return 0
     elif trgt < src:
