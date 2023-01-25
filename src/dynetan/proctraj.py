@@ -2174,7 +2174,7 @@ class DNAproc:
 
             self.nodesComm[win]["commOrderSize"] = copy.deepcopy(communitiesOrdSize)
 
-            def getEgnCentr(comm):
+            def getEgnCentr(comm: int):
                 """
                     Auxiliary function that returns Eigenvector Centralities for
                     nodes of a given community.
@@ -2199,8 +2199,12 @@ class DNAproc:
                 self.nodesComm[win]["commOrderEigenCentr"] = \
                     copy.deepcopy(communitiesOrdEigen)
 
-    def interfaceAnalysis(self, selAstr, selBstr, betweenDist=15, samples=10,
-                          verbose=0):
+    def interfaceAnalysis(self,
+                          selAstr: str,
+                          selBstr: str,
+                          betweenDist: float = 15.0,
+                          samples: int = 10,
+                          verbose: int = 0):
         """Detects interface between molecules.
 
         Based on user-defined atom selections, the function detects residues
@@ -2228,6 +2232,15 @@ class DNAproc:
 
         """
 
+        assert isinstance(selAstr, str)
+        assert isinstance(selBstr, str)
+        assert isinstance(betweenDist, (float, int))
+        assert isinstance(samples, int)
+        assert isinstance(verbose, int)
+
+        assert betweenDist > 0
+        assert samples > 0
+
         # Select the necessary stride so that we get *samples*.
         stride = int(np.floor(len(self.workU.trajectory) / samples))
 
@@ -2252,29 +2265,21 @@ class DNAproc:
             # or between distance lead to a NULL selection, the function returns
             # 0 ("zero"), otherwise, it returns an "AtomGroup" instance.
             if not isinstance(contactSel, mda.AtomGroup):
-                if verbose:
-                    warnStr = "Warning: No contacts found in this interface for " \
-                              "timestep {}"
-                    print(warnStr.format(ts.time))
-                continue
-
-            contactNodes.update(np.unique(self.atomToNode[contactSel.atoms.ix_array]))
+                if verbose > 1:
+                    warn_str = f"No contacts found in timestep {ts.time}"
+                    print(warn_str)
+            else:
+                contactNodes.update(np.unique(
+                    self.atomToNode[contactSel.atoms.ix_array]))
 
         if len(contactNodes) == 0:
-            print("No contacts found in this interface. "
-                  "Check your selections and sampling.")
+            if verbose > 0:
+                print("No contacts found in this interface. "
+                      "Check your selections and sampling.")
             return 0
 
         # Makes it into a list for better processing
         contactNodesL = np.asarray(list(contactNodes))
-
-        # Sanity check.
-        # Verifies possible references from atoms that had no nodes.
-        if len(contactNodesL[contactNodesL < 0]):
-            errStr = "ERROR! There are {} atoms not represented by nodes! " + \
-                     "Verify your universe and atom selection."
-            print(errStr.format(len(contactNodesL[contactNodesL < 0])))
-            return -1
 
         # These are all nodes in both selections.
         numContactNodesL = len(contactNodes)
@@ -2292,7 +2297,7 @@ class DNAproc:
         # These are all pairs of nodes that make direct connections.
         # These pairs WILL INCLUDE pairs where both nodes are on the same
         # side of the interface.
-        contactNodePairs = np.asarray(contactNodePairs, dtype=np.int)
+        contactNodePairs = np.asarray(contactNodePairs, dtype=np.int64)
 
         def inInterface(nodesAtmSel, i, j):
             segID1 = nodesAtmSel.atoms[i].segid
@@ -2308,12 +2313,16 @@ class DNAproc:
         # that is, pairs that connect the two atom selections.
         self.interNodePairs = [(i, j) for i, j in contactNodePairs
                                if inInterface(self.nodesAtmSel, i, j)]
-        self.interNodePairs = np.asarray(self.interNodePairs, dtype=np.int)
-        msgStr = "{0} pairs of nodes connecting the two selections."
-        print(msgStr.format(len(self.interNodePairs)))
+        self.interNodePairs = np.asarray(self.interNodePairs, dtype=np.int64)
+
+        if verbose > 0:
+            msgStr = "{0} pairs of nodes connecting the two selections."
+            print(msgStr.format(len(self.interNodePairs)))
 
         self.contactNodesInter = np.unique(self.interNodePairs)
-        msgStr = "{0} unique nodes in interface node pairs."
-        print(msgStr.format(len(self.contactNodesInter)))
+
+        if verbose > 0:
+            msgStr = "{0} unique nodes in interface node pairs."
+            print(msgStr.format(len(self.contactNodesInter)))
 
         return len(self.contactNodesInter)
