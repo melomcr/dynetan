@@ -1,6 +1,5 @@
 import pytest
 from dynetan.toolkit import getNodeFromSel
-import numpy as np
 
 from .test_proctraj_checksys_selectsys import test_data_dir  # NOQA - PyCharm
 from .test_proctraj_checksys_selectsys import dnap_omp  # NOQA - PyCharm

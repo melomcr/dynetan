@@ -15,14 +15,6 @@ def dnap():
     return dnapt.DNAproc(notebookMode=False)
 
 
-# @pytest.fixture(scope="session")
-# def image_file(tmp_path_factory):
-#     img = compute_expensive_image()
-#     fn = tmp_path_factory.mktemp("data") / "img.png"
-#     img.save(fn)
-#     return fn
-
-
 class TestProcTraj:
 
     def test_version(self):

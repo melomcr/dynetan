@@ -393,8 +393,8 @@ class DNAproc:
         totalFrames: int = int(len(self.workU.trajectory[::stride]))
 
         with mda.Writer(dcdVizFile, self.workU.atoms.n_atoms) as W:
-            for ts in self.progBar(self.workU.trajectory[::stride], desc="Frames",
-                                   total=totalFrames, ascii=self.asciiMode):
+            for _ in self.progBar(self.workU.trajectory[::stride], desc="Frames",
+                                  total=totalFrames, ascii=self.asciiMode):
                 W.write(self.workU.atoms)
 
         pdbVizFile = fileNameRoot + "_reducedTraj.pdb"

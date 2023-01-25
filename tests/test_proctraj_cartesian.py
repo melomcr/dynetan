@@ -4,7 +4,6 @@ from dynetan.toolkit import getCartDist
 
 from .test_proctraj_checksys_selectsys import test_data_dir  # NOQA - PyCharm
 from .test_proctraj_checksys_selectsys import dnap_omp  # NOQA - PyCharm
-from .test_proctraj_corr import dnap_omp_loaded  # NOQA - PyCharm
 
 
 dist_list = [
@@ -40,9 +39,9 @@ def load_sys_solv_mode(dnap_base, solv, mode):
     dnap_base.findContacts(stride=2, verbose=0)
 
     dnap_base.filterContacts(notSameRes=True,
-                            notConsecutiveRes=True,
-                            removeIsolatedNodes=True,
-                            verbose=0)
+                             notConsecutiveRes=True,
+                             removeIsolatedNodes=True,
+                             verbose=0)
 
     dnap_base.calcCor(ncores=1)
 

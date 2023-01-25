@@ -1,5 +1,4 @@
 import pytest
-import numpy as np
 import networkx as nx
 
 from .test_proctraj_checksys_selectsys import test_data_dir  # NOQA - PyCharm
