@@ -1,4 +1,5 @@
 import pytest
+import numpy as np
 from dynetan.toolkit import getNodeFromSel
 
 from .test_proctraj_checksys_selectsys import test_data_dir  # NOQA - PyCharm
@@ -85,15 +86,15 @@ def test_calc_cor_force_calc(dnap_omp_loaded, ncores):
     (10, False, [338, 384]),
     (1, True, [854, 847]),
     (10, True, [854, 847])])
-def test_calc_cor_verb(dnap_omp_loaded, capfd, ncores, force, counts):
+def test_calc_cor_verb(dnap_omp_loaded, capsys, ncores, force, counts):
     # First run is default
     dnap_omp_loaded.calcCor(ncores=ncores, forceCalc=False, verbose=0)
 
-    # First run uses the arguments and has verbosity output
+    # Second run uses the arguments and has verbosity output
     dnap_omp_loaded.calcCor(ncores=ncores, forceCalc=force, verbose=2)
 
-    # Check verbosity output for multicore run
-    captured = capfd.readouterr()
+    # Check verbosity output
+    captured = capsys.readouterr()
 
     assert "Calculating correlations" in captured.out
     assert "Using window length of " in captured.out
@@ -117,6 +118,51 @@ def test_calc_cor_verb(dnap_omp_loaded, capfd, ncores, force, counts):
 
     test_str = f"{counts[1]} new correlations to be calculated in window 1."
     assert test_str in captured.out
+
+
+@pytest.mark.parametrize(("ncores", "force"), [
+    (1, False), (10, False)])
+def test_calc_cor_verb_2(dnap_omp_loaded, capsys, ncores, force):
+    """
+    This function will test a particular case where correlation calculation is
+    asked twice without "force=True" AND there is no pair of nodes in contact
+    with correlation equal to zero.
+
+    This will prompt a message (given verbosity > 1) and a branch where no new
+    correlation calculation will be executed.
+
+    Alternatively, if there was a pait of nodes in contact that had previously
+    been evaluated with zero correlation, the correlation would be evaluated
+    again.
+
+    This allows for NEW contacts to be introduced in the contact matrix and their
+    correlations can be evaluated in sequential rounds of calcCorr.
+    """
+    # First run is default
+    dnap_omp_loaded.calcCor(ncores=1, forceCalc=False, verbose=0)
+
+    for win in range(2):
+        contacts = dnap_omp_loaded.contactMatAll[win, :, :].copy()
+        contacts = np.triu(contacts)
+        contactsL = np.where(contacts > 0)
+        contactsL = np.asarray(contactsL).T
+
+        # Create a list of node pairs for which we have a contact but no correlation
+        no_corr_contacts = [(n1, n2) for n1, n2 in contactsL if
+                            dnap_omp_loaded.corrMatAll[win, n1, n2] == 0]
+
+        # Artificially introduce minimal correlation between such nodes.
+        for n1, n2 in no_corr_contacts:
+            dnap_omp_loaded.corrMatAll[win, n1, n2] = 0.001
+            dnap_omp_loaded.corrMatAll[win, n2, n1] = 0.001
+
+    # Second run uses the arguments and has verbosity output
+    dnap_omp_loaded.calcCor(ncores=ncores, forceCalc=force, verbose=2)
+
+    # Capture verbosity output
+    captured = capsys.readouterr()
+
+    assert "No new correlations to be calculated" in captured.out
 
 
 @pytest.mark.xfail(raises=Exception)
