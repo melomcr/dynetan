@@ -5,6 +5,7 @@
 
 # For trajectory analysis
 import MDAnalysis as mda
+import numpy
 
 
 def diagnostic():
@@ -18,7 +19,7 @@ def diagnostic():
     return mda.lib.distances.USED_OPENMP
 
 
-def getNGLSelFromNode(nodeIndx, atomsel, atom=True):
+def getNGLSelFromNode(nodeIndx: int, atomsel: any, atom: bool = True) -> str:
     """Creates an atom selection for NGLView.
 
     Returns an atom selection for a whole residue or single atom in the NGL
@@ -44,7 +45,7 @@ def getNGLSelFromNode(nodeIndx, atomsel, atom=True):
         return " and ".join([str(node.resid), node.resname])
 
 
-def getNodeFromSel(selection, atmsel, atm_to_node):
+def getNodeFromSel(selection: str, atmsel: any, atm_to_node: any) -> numpy.ndarray:
     """Gets the node index from an atom selection.
 
     Returns one or more node indices when given an MDAnalysis atom selection
@@ -59,7 +60,7 @@ def getNodeFromSel(selection, atmsel, atm_to_node):
             Dynamic Network Analysis atom-to-node mapping object.
 
     Returns:
-        np.array : List of node indices mapped to the provided atom selection.
+        indices (array) : List of node indices mapped to the provided atom selection.
 
     """
 
@@ -70,7 +71,7 @@ def getNodeFromSel(selection, atmsel, atm_to_node):
     return nodes[nodes >= 0]
 
 
-def getSelFromNode(nodeIndx, atomsel, atom=False):
+def getSelFromNode(nodeIndx: int, atomsel: any, atom: bool = False):
     """Gets the MDanalysis selection string from a node index.
 
     Given a node index, this function builds an atom selection string in the
@@ -89,9 +90,10 @@ def getSelFromNode(nodeIndx, atomsel, atom=False):
         str: Text string with MDAnalysis-style atom selection.
 
     """
-    nodeIndx = int(nodeIndx)
-    if nodeIndx < 0:
-        raise
+
+    assert isinstance(nodeIndx, (int, numpy.integer))
+    assert nodeIndx >= 0
+
     resName = atomsel.atoms[nodeIndx].resname
     resID = str(atomsel.atoms[nodeIndx].resid)
     segID = atomsel.atoms[nodeIndx].segid
@@ -105,7 +107,11 @@ def getSelFromNode(nodeIndx, atomsel, atom=False):
         return retStr
 
 
-def getPath(src, trg, nodesAtmSel, preds, win=0):
+def getPath(src: int,
+            trg: int,
+            nodesAtmSel: any,
+            preds: any,
+            win: int = 0) -> numpy.array:
     """Gets connecting path between nodes.
 
     This function recovers the list of nodes that connect `src` and `trg` nodes.
@@ -125,10 +131,13 @@ def getPath(src, trg, nodesAtmSel, preds, win=0):
 
     """
 
-    import numpy as np
+    assert isinstance(src, (int, numpy.integer))
+    assert isinstance(trg, (int, numpy.integer))
+    assert isinstance(win, int)
 
-    src = int(src)
-    trg = int(trg)
+    assert src >= 0
+    assert trg >= 0
+    assert win >= 0
 
     if src == trg:
         return []
@@ -147,10 +156,10 @@ def getPath(src, trg, nodesAtmSel, preds, win=0):
     while path[-1] != src:
         path.append(preds[win][src][path[-1]])
 
-    return np.asarray(path)
+    return numpy.asarray(path)
 
 
-def getLinIndexC(src, trgt, dim):
+def getLinIndexC(src: int, trgt: int, dim: int) -> int:
     """Conversion from 2D matrix indices to 1D triangular.
 
     Converts from 2D matrix indices to 1D (n*(n-1)/2) unwrapped triangular
@@ -166,12 +175,24 @@ def getLinIndexC(src, trgt, dim):
 
     """
 
+    assert isinstance(src, int)
+    assert isinstance(trgt, int)
+    assert isinstance(dim, int)
+
+    assert src >= 0
+    assert trgt >= 0
+    assert dim >= 0
+
     # https://stackoverflow.com/questions/27086195/linear-index-upper-triangular-matrix
     k = (dim*(dim-1)/2) - (dim-src)*((dim-src)-1)/2 + trgt - src - 1.0
     return int(k)
 
 
-def getCartDist(src, trgt, numNodes, nodeDists, distype=0):
+def getCartDist(src: int,
+                trgt: int,
+                numNodes: int,
+                nodeDists: any,
+                distype: int = 0) -> float:
     """Get cartesian distance between nodes.
 
     Retrieves the cartesian distance between atoms representing nodes `src` and
@@ -192,6 +213,14 @@ def getCartDist(src, trgt, numNodes, nodeDists, distype=0):
 
     """
 
+    assert isinstance(src, int)
+    assert isinstance(trgt, int)
+    assert isinstance(numNodes, int)
+
+    assert src >= 0
+    assert trgt >= 0
+    assert numNodes > 0
+
     assert nodeDists is not None, "Cartesian distances not yet calculated!"
 
     if src == trgt:
@@ -206,7 +235,9 @@ def getCartDist(src, trgt, numNodes, nodeDists, distype=0):
     return nodeDists[distype, k]
 
 
-def formatNodeGroups(atmGrp, nodeAtmStrL=["CA"], grpAtmStrL=None):
+def formatNodeGroups(atmGrp: any,
+                     nodeAtmStrL: list = ["CA"],
+                     grpAtmStrL: [list, None] = None) -> None:
     """Format code to facilitate the definition of node groups.
 
     This convenience function helps with the definition of node groups.
@@ -228,25 +259,19 @@ def formatNodeGroups(atmGrp, nodeAtmStrL=["CA"], grpAtmStrL=None):
 
     """
 
-    if not (isinstance(nodeAtmStrL, list)):
-        errStr = "ERROR: Expected a list argument for nodeAtmStr, but received {}."
-        print(errStr.format(type(nodeAtmStrL).__name__))
-        return
-
     # Check if the input is making sense, and to get the residue name.
-    if len(atmGrp.residues) != 1:
-        errStr = "ERROR: Expected 1 residue in atom group, but received {}."
-        print(errStr.format(len(atmGrp.residues)))
-        return
+    assert isinstance(nodeAtmStrL, list), "Expected a list of node atom name(s)."
+
+    assert len(atmGrp.residues) == 1, "Expected a single residue in atom group."
 
     atmNames = list(atmGrp.names)
     resName = atmGrp.resnames[0]
 
     if not (set(nodeAtmStrL).issubset(set(atmNames))):
         errorSet = set(nodeAtmStrL) - set(atmNames)
-        errStr = "ERROR: The following node atoms are present in the residue: {}"
+        errStr = "ERROR: The following node atoms are NOT present in the residue: {}"
         print(errStr.format(errorSet))
-        return
+        raise
 
     print("""
         You can copy and paste the following lines into your notebook to define
@@ -263,12 +288,12 @@ def formatNodeGroups(atmGrp, nodeAtmStrL=["CA"], grpAtmStrL=None):
 
         if not grpAtmStrL:
             print("ERROR: The argument `grpAtmStrL` is not defined.")
-            return
+            raise
 
         if len(grpAtmStrL) != len(nodeAtmStrL):
             errStr = "ERROR: Expected {} lists of atoms in `grpAtmStrL` but received {}."
             print(errStr.format(len(nodeAtmStrL), len(grpAtmStrL)))
-            return
+            raise
 
         for nodeAtmStr, grpAtmStr in zip(nodeAtmStrL, grpAtmStrL):
             print("usrNodeGroups[\"{}\"][\"{}\"] = {}".format(
