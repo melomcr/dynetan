@@ -95,7 +95,7 @@ class TestGraph:
 
         assert list(opt_path) == ref_list
 
-        # The using the object function
+        # Then using the object function
         opt_path = dnap.getPath(enzNode[0], trgtNodes[1], 0)
 
         assert list(opt_path) == ref_list
@@ -109,10 +109,29 @@ class TestGraph:
 
         assert list(opt_path) == ref_list
 
-        # The using the object function
+        # Then using the object function
         opt_path = dnap.getPath(enzNode[0], trgtNodes[1], 1)
 
         assert list(opt_path) == ref_list
+
+        # Extra check for the toolkit version
+        # Check identical source and target nodes
+        opt_path = getPath(0, 0, dnap.nodesAtmSel, dnap.preds, 0)
+        assert opt_path == []
+
+        # Check special case where there is no path connecting a specific node
+        opt_path = getPath(92, 1, dnap.nodesAtmSel, dnap.preds, 0)
+        assert opt_path == []
+
+        # Check special case where there is no path between two nodes
+        # We use the isolated node as target
+        opt_path = getPath(104, 92, dnap.nodesAtmSel, dnap.preds, 0)
+        assert opt_path == []
+
+        # Check case where two nodes are from same residue
+        opt_path = getPath(trgtNodes[0], trgtNodes[1],
+                           dnap.nodesAtmSel, dnap.preds, 0)
+        assert opt_path == []
 
     @pytest.mark.parametrize(
         "num_cores", [
