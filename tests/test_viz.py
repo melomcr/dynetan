@@ -3,9 +3,14 @@ import pytest
 from dynetan.viz import getCommunityColors
 from dynetan.viz import prepTclViz
 
+import nglview as nv
 import os
 import pandas as pd
 from io import StringIO
+
+from .test_proctraj_checksys_selectsys import test_data_dir  # NOQA - PyCharm
+from .test_proctraj_checksys_selectsys import dnap_omp  # NOQA - PyCharm
+from .test_proctraj_cartesian import load_sys_solv_mode # NOQA - PyCharm
 
 
 @pytest.fixture(scope="session")
@@ -14,6 +19,7 @@ def tmp_dna_test_dir(tmp_path_factory):
 
 
 class TestVizMethods:
+    ligandSegID = "OMP"
 
     rawcolordata = u"""\
         ID    R    G    B
@@ -80,6 +86,9 @@ class TestVizMethods:
         assert commColors.equals(rawdataDF)
 
     def test_prep_tcl_viz(self, tmp_dna_test_dir):
+        """
+            Test the
+        """
 
         base_name = "networkData"
         num_steps = 12345
@@ -105,4 +114,37 @@ class TestVizMethods:
         for test_line in test_lines:
             assert test_line in lines
 
-        # assert True
+    def test_view_path(self, dnap_omp):
+        """
+            This will test the NGLview function that creates representations.
+            We cannot test the visual output, but can test argument
+            compatibility anf function operation.
+        """
+        from dynetan.toolkit import getNodeFromSel
+        from dynetan.toolkit import getPath
+        from dynetan.viz import viewPath
+        from dynetan.viz import showCommunity
+
+        dnap = load_sys_solv_mode(dnap_omp, False, "all")
+        dnap.calcGraphInfo()
+        dnap.calcOptPaths(ncores=1)
+        dnap.calcBetween(ncores=1)
+
+        enzNode = getNodeFromSel("segid ENZY and resname GLU and resid 115",
+                                 dnap.nodesAtmSel,
+                                 dnap.atomToNode)
+        trgtNodes = getNodeFromSel("segid " + self.ligandSegID,
+                                   dnap.nodesAtmSel,
+                                   dnap.atomToNode)
+
+        optpath = getPath(trgtNodes[1], enzNode[0], dnap.nodesAtmSel, dnap.preds)
+
+        w = nv.show_mdanalysis(dnap.getU().select_atoms("all"))
+
+        # Test creation of a path between two different nodes
+        viewPath(w, optpath, dnap.distsAll, dnap.maxDirectDist, dnap.nodesAtmSel)
+
+        # Test creation of a path between two identical nodes
+        # Should just return without creating any representation
+        viewPath(w, [optpath[0], optpath[0]],
+                 dnap.distsAll, dnap.maxDirectDist, dnap.nodesAtmSel)

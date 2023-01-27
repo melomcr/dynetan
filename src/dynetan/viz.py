@@ -146,7 +146,7 @@ def viewPath(nvView, path, dists, maxDirectDist, nodesAtmSel, win=0,
                                   lazy=True)
 
 
-def showCommunity(nvView, nodeCommDF, commID, window, nodesAtmSel, dnad, colorValDict):
+def showCommunity(nvView, commID, window, dnad, colorValDict):
     """Creates NGLView representation of a specified community.
 
     Renders a series of cylinders to represent all edges in the network that
@@ -157,10 +157,8 @@ def showCommunity(nvView, nodeCommDF, commID, window, nodesAtmSel, dnad, colorVa
 
     Args:
         nvView (obj) : NGLView object.
-        nodeCommDF (obj) : Pandas data frame relating node IDs with their communities.
         commID (float): Community ID for the community to be rendered.
         window (int) : Window used for representation.
-        nodesAtmSel (obj) : MDAnalysis atom selection object.
         dnad (obj) : Dynamical Network Analysis data object.
         colorValDict (obj) : Dictionary that standardizes community colors.
 
@@ -174,10 +172,10 @@ def showCommunity(nvView, nodeCommDF, commID, window, nodesAtmSel, dnad, colorVa
         commI = dnad.nxGraphs[window].nodes[i]["modularity"]
         commJ = dnad.nxGraphs[window].nodes[j]["modularity"]
 
-        # If the pair of nodes is in the same cmmunity, render the edge.
+        # If the pair of nodes is in the same community, render the edge.
         if commID == commI == commJ:
             viewPath(nvView, [i, j], dnad.distsAll, dnad.maxDirectDist,
-                     nodesAtmSel, win=window, opacity=1,
+                     dnad.nodesAtmSel, win=window, opacity=1,
                      color=colorValDict[commID])
 
 
