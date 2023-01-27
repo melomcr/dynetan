@@ -1,10 +1,7 @@
 import pytest
 import networkx as nx
 
-from .test_proctraj_checksys_selectsys import test_data_dir  # NOQA - PyCharm
-from .test_proctraj_checksys_selectsys import dnap_omp  # NOQA - PyCharm
-from .test_proctraj_corr import dnap_omp_loaded  # NOQA - PyCharm
-from .test_proctraj_cartesian import load_sys_solv_mode # NOQA - PyCharm
+from .test_proctraj_cartesian import load_sys_solv_mode
 
 
 class TestGraph:

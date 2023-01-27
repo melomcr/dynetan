@@ -6,8 +6,7 @@ import dynetan as dna
 from dynetan import proctraj as dnapt
 from dynetan import contact as ct
 
-from .test_proctraj_checksys_selectsys import test_data_dir  # NOQA - PyCharm
-from .test_proctraj_checksys_selectsys import psf_fn_omp, dcd_fn_omp
+from .conftest import psf_fn_omp, dcd_fn_omp
 
 
 @pytest.fixture

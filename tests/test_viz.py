@@ -8,9 +8,7 @@ import os
 import pandas as pd
 from io import StringIO
 
-from .test_proctraj_checksys_selectsys import test_data_dir  # NOQA - PyCharm
-from .test_proctraj_checksys_selectsys import dnap_omp  # NOQA - PyCharm
-from .test_proctraj_cartesian import load_sys_solv_mode # NOQA - PyCharm
+from .test_proctraj_cartesian import load_sys_solv_mode
 
 
 @pytest.fixture(scope="session")
@@ -123,7 +121,6 @@ class TestVizMethods:
         from dynetan.toolkit import getNodeFromSel
         from dynetan.toolkit import getPath
         from dynetan.viz import viewPath
-        from dynetan.viz import showCommunity
 
         dnap = load_sys_solv_mode(dnap_omp, False, "all")
         dnap.calcGraphInfo()

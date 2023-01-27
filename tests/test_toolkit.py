@@ -1,7 +1,5 @@
 import pytest
 from MDAnalysis import lib
-from .test_proctraj_checksys_selectsys import test_data_dir  # NOQA - PyCharm
-from .test_proctraj_checksys_selectsys import dnap_omp  # NOQA - PyCharm
 
 
 class TestToolkitClass:
@@ -49,14 +47,14 @@ class TestToolkitClass:
         # Test creation of MDanalysis selection string from node
         ref_str = 'resname GLU and resid 115 and segid ENZY and name CA'
         test_str = getSelFromNode(nodeIndx=104,
-                                     atomsel=dnap_omp.nodesAtmSel,
-                                     atom=True)
+                                  atomsel=dnap_omp.nodesAtmSel,
+                                  atom=True)
         assert ref_str == test_str
 
         ref_str = 'resname GLU and resid 115 and segid ENZY'
         test_str = getSelFromNode(nodeIndx=104,
-                                     atomsel=dnap_omp.nodesAtmSel,
-                                     atom=False)
+                                  atomsel=dnap_omp.nodesAtmSel,
+                                  atom=False)
         assert ref_str == test_str
 
         # Test creation of NGL selection

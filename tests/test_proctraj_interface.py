@@ -1,28 +1,12 @@
 import pytest
 
-from .test_proctraj_checksys_selectsys import test_data_dir  # NOQA - PyCharm
-from .test_proctraj_checksys_selectsys import dnap_omp  # NOQA - PyCharm
-from .test_proctraj_cartesian import load_sys_solv_mode # NOQA - PyCharm
+from .test_proctraj_cartesian import load_sys_solv_mode
 
-ref_pairs_list = [[  7, 215],
-       [  9, 215],
-       [ 31, 215],
-       [ 31, 216],
-       [ 59, 216],
-       [ 61, 216],
-       [ 85, 216],
-       [112, 216],
-       [114, 216],
-       [115, 216],
-       [116, 216],
-       [144, 216],
-       [169, 215],
-       [169, 216],
-       [171, 215],
-       [173, 215],
-       [190, 215],
-       [191, 215],
-       [192, 215]]
+ref_pairs_list = [[  7, 215], [  9, 215], [ 31, 215], [ 31, 216],  # noqa: E201
+                  [ 59, 216], [ 61, 216], [ 85, 216], [112, 216],  # noqa: E201
+                  [114, 216], [115, 216], [116, 216], [144, 216],
+                  [169, 215], [169, 216], [171, 215], [173, 215],
+                  [190, 215], [191, 215], [192, 215]]
 ref_nodes_list = [7,   9,  31,  59,  61,  85, 112, 114, 115, 116, 144, 169, 171,
                   173, 190, 191, 192, 215, 216]
 

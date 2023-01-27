@@ -2,9 +2,6 @@ import pytest
 
 from dynetan.proctraj import is_proteic
 
-from .test_proctraj_checksys_selectsys import test_data_dir  # NOQA - PyCharm
-from .test_proctraj_checksys_selectsys import dnap_omp  # NOQA - PyCharm
-
 
 @pytest.mark.parametrize(("resname", "return_val"), [
     ("XXX", False),
@@ -133,7 +130,7 @@ def test_node_groups_unk_atoms_verb(dnap_omp, capfd):
 
     try:
         dnap_omp.prepareNetwork(verbose=2, autocomp_groups=False)
-    except:
+    except Exception:
         # We catch the exception to allow PyTest to verify the verbose output.
         pass
 
@@ -150,6 +147,7 @@ def test_node_groups_unk_atoms_verb(dnap_omp, capfd):
 
     test_str = "<Atom 1648: C1' of type CG3C51 of resname OMP, resid 301 and segid OMP>"
     assert test_str in captured.out
+
 
 @pytest.mark.parametrize(("solv", "atm_grp"), [
         pytest.param(True,  {'OH2'}),

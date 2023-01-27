@@ -2,29 +2,6 @@ import pytest
 import numpy as np
 from dynetan.toolkit import getNodeFromSel
 
-from .test_proctraj_checksys_selectsys import test_data_dir  # NOQA - PyCharm
-from .test_proctraj_checksys_selectsys import dnap_omp  # NOQA - PyCharm
-
-
-@pytest.fixture
-def dnap_omp_loaded(dnap_omp):
-    dnap_omp.checkSystem()
-
-    dnap_omp.selectSystem(with_solvent=False)
-
-    dnap_omp.prepareNetwork(verbose=0)
-
-    dnap_omp.alignTraj()
-
-    dnap_omp.findContacts(stride=2, verbose=0)
-
-    dnap_omp.filterContacts(notSameRes=True,
-                            notConsecutiveRes=True,
-                            removeIsolatedNodes=True,
-                            verbose=0)
-
-    return dnap_omp
-
 
 @pytest.mark.xfail(raises=AssertionError)
 def test_calc_cor_input(dnap_omp_loaded):

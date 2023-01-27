@@ -1,10 +1,7 @@
-import pytest
 import os
 from dynetan import DNAdata
 
-from .test_proctraj_checksys_selectsys import test_data_dir  # NOQA - PyCharm
-from .test_proctraj_checksys_selectsys import dnap_omp  # NOQA - PyCharm
-from .test_proctraj_cartesian import load_sys_solv_mode # NOQA - PyCharm
+from .test_proctraj_cartesian import load_sys_solv_mode
 
 
 def test_data_storage(tmp_path, dnap_omp):
@@ -65,4 +62,3 @@ def test_data_storage(tmp_path, dnap_omp):
 
     assert dna_data.interNodePairs.shape == (19, 2)
     assert dna_data.contactNodesInter.shape == (19,)
-

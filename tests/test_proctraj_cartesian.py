@@ -2,12 +2,9 @@ import pytest
 
 from dynetan.toolkit import getCartDist
 
-from .test_proctraj_checksys_selectsys import test_data_dir  # NOQA - PyCharm
-from .test_proctraj_checksys_selectsys import dnap_omp  # NOQA - PyCharm
-
 
 dist_list = [
-    [0,   0,   [0.0   ,  0.0   , 0.0   ,  0.0   ]],
+    [0,   0,   [0.0   ,  0.0   , 0.0   ,  0.0   ]],  # noqa: E202, E203
     [0,   1,   [1.3497,  0.0038, 1.3443,  1.3606]],
     [0,   10,  [18.3727, 0.1023, 18.2059, 18.6711]],
     [215, 192, [2.8618,  0.0233, 2.8145,  2.9069]],

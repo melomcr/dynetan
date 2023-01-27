@@ -1,9 +1,6 @@
 import pytest
 import numpy as np
 
-from .test_proctraj_checksys_selectsys import test_data_dir  # NOQA - PyCharm
-from .test_proctraj_checksys_selectsys import dnap_omp  # NOQA - PyCharm
-
 
 @pytest.mark.parametrize(("select_str", "in_memory", "position"), [
     pytest.param("", True,
@@ -224,8 +221,8 @@ def test_filter_contacts(dnap_omp, capfd,
     assert dnap_omp.numNodes == init_nodes
 
     dnap_omp.filterContacts(notSameRes=not_same_res,
-                        notConsecutiveRes=not_consec_res,
-                        removeIsolatedNodes=remove_isolated)
+                            notConsecutiveRes=not_consec_res,
+                            removeIsolatedNodes=remove_isolated)
 
     assert dnap_omp.numNodes == final_nodes
 

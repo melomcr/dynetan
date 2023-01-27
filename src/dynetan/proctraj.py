@@ -1777,9 +1777,9 @@ class DNAproc:
 
         # Mean distance
         for _ in self.progBar(self.workU.trajectory[0:maxFrame:steps],
-                               total=numFramesDists,
-                               desc="MEAN: Timesteps",
-                               ascii=self.asciiMode):
+                              total=numFramesDists,
+                              desc="MEAN: Timesteps",
+                              ascii=self.asciiMode):
             ct.calcDistances(selectionAtms, self.numNodes, selectionAtms.n_atoms,
                              self.atomToNode, self.cutoffDist,
                              self.nodeGroupIndicesNP, self.nodeGroupIndicesNPAux,
@@ -1798,9 +1798,9 @@ class DNAproc:
 
         # Standard Error of the Mean
         for _ in self.progBar(self.workU.trajectory[0:maxFrame:steps],
-                               total=numFramesDists,
-                               desc="SEM/MIN/MAX: Timesteps",
-                               ascii=self.asciiMode):
+                              total=numFramesDists,
+                              desc="SEM/MIN/MAX: Timesteps",
+                              ascii=self.asciiMode):
             ct.calcDistances(selectionAtms,
                              self.numNodes,
                              selectionAtms.n_atoms,
