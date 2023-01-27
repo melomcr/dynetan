@@ -16,7 +16,7 @@ readme = {"file" = "README.md", "content-type" = "text/markdown"}
 requires-python = ">=3.9"
 dependencies = [
 "MDAnalysis",
-"SciPy",
+#"SciPy",
 "NumPy",
 "pandas",
 "networkx",
@@ -93,7 +93,7 @@ strict_equality = true
 strict_concatenate = true
 
 # Strongly recommend enabling this one as soon as you can
-#check_untyped_defs = true
+check_untyped_defs = false
 
 # These shouldn't be too much additional work, but may be tricky to
 # get passing if you use a lot of untyped libraries
@@ -127,8 +127,6 @@ strict_concatenate = true
 [[tool.mypy.overrides]]
 module = [
 #    "dynetan.proctraj.*",
-    "dynetan.datastorage.*",
-    "dynetan.network.*"
 ]
 ignore_errors = true
 
@@ -142,5 +140,6 @@ module = [
     "tqdm.*",
     "colorama",
     "pandas",
+    "h5py"
 ]
 ignore_missing_imports = true

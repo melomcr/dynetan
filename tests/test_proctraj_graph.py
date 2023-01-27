@@ -114,21 +114,21 @@ class TestGraph:
         # Extra check for the toolkit version
         # Check identical source and target nodes
         opt_path = getPath(0, 0, dnap.nodesAtmSel, dnap.preds, 0)
-        assert opt_path == []
+        assert len(opt_path) == 0
 
         # Check special case where there is no path connecting a specific node
         opt_path = getPath(92, 1, dnap.nodesAtmSel, dnap.preds, 0)
-        assert opt_path == []
+        assert len(opt_path) == 0
 
         # Check special case where there is no path between two nodes
         # We use the isolated node as target
         opt_path = getPath(104, 92, dnap.nodesAtmSel, dnap.preds, 0)
-        assert opt_path == []
+        assert len(opt_path) == 0
 
         # Check case where two nodes are from same residue
         opt_path = getPath(trgtNodes[0], trgtNodes[1],
                            dnap.nodesAtmSel, dnap.preds, 0)
-        assert opt_path == []
+        assert len(opt_path) == 0
 
     @pytest.mark.parametrize(
         "num_cores", [
