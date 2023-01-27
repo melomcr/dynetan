@@ -38,6 +38,7 @@ from colorama import Fore
 from operator import itemgetter
 from collections import OrderedDict
 from collections import defaultdict
+import queue  # So that we can catch the exceptions for empty queues
 
 # import os
 import copy
@@ -1270,11 +1271,11 @@ class DNAproc:
         # Regenerate selection of atoms that represent nodes.
 
         # Builds list of selection statements
-        selStr = ["(resname {0} and name {1})".format(k, " ".join(v.keys()))
-                  for k, v in self.resNodeGroups.items()]
+        selStrL = ["(resname {0} and name {1})".format(k, " ".join(v.keys()))
+                   for k, v in self.resNodeGroups.items()]
 
         # Combines all statements into one selection string
-        selStr = " or ".join(selStr)
+        selStr = " or ".join(selStrL)
 
         if verbose > 1:
             print("Selection string for atoms that represent network nodes:")
@@ -1517,7 +1518,8 @@ class DNAproc:
                                        dtype=np.float64)
 
         # Stores all data in a dimension-by-frame format.
-        traj = np.ndarray([self.numNodes, numDims, winLen], dtype=np.float64)
+        traj: np.ndarray = np.ndarray([self.numNodes, numDims, winLen],
+                                      dtype=np.float64)
 
         # Pre-calculate psi values for all frames.
         # (allocation and initialization step)
@@ -1531,7 +1533,7 @@ class DNAproc:
                 psi[indx + 1] = psi[indx] + 1 / indx
 
         # Pre calculates "psi[k] - 1/k"
-        phi = np.ndarray([self.kNeighb + 1], dtype=np.float64)
+        phi: np.ndarray = np.ndarray([self.kNeighb + 1], dtype=np.float64)
         for tmpindx in range(1, (self.kNeighb + 1)):
             phi[tmpindx] = psi[tmpindx] - 1 / tmpindx
 
@@ -1567,16 +1569,16 @@ class DNAproc:
                         print(verStr)
 
                 # Create pair list from mask
-                pairList = np.asarray(np.where(np.triu(corMask[:, :]) > 0)).T
+                pair_array = np.asarray(np.where(np.triu(corMask[:, :]) > 0)).T
 
-                if pairList.shape[0] == 0:
+                if pair_array.shape[0] == 0:
                     if verbose > 0:
                         print(f"No new correlations to be calculated "
                               f"in window {winIndx}.")
                     break
                 else:
                     if verbose > 0:
-                        print(f"{pairList.shape[0]} new correlations to "
+                        print(f"{pair_array.shape[0]} new correlations to "
                               f"be calculated in window {winIndx}.")
 
                 # Resets the trajectory NP array for the current window.
@@ -1586,7 +1588,7 @@ class DNAproc:
                 gc.prepMIc(self.workU, traj, beg, end, self.numNodes, numDims)
 
                 # Iterates over all pairs of nodes that are in contact.
-                for atmList in self.progBar(pairList,
+                for atmList in self.progBar(pair_array,
                                             desc="Contact Pair",
                                             leave=False,
                                             ascii=self.asciiMode):
@@ -1620,7 +1622,7 @@ class DNAproc:
                 beg = int(winIndx * winLen)
                 end = int((winIndx + 1) * winLen)
 
-                pairList = []
+                pairList: list = []
 
                 # Build pair list avoiding overlapping nodes (which would require
                 # reading the same trajectory).
@@ -1648,16 +1650,16 @@ class DNAproc:
                     pairList = [pair for pair in pairList
                                 if pair not in precalcPairList]
 
-                pairList = np.asarray(pairList)
+                pair_array = np.asarray(pairList)
 
-                if pairList.shape[0] == 0:
+                if pair_array.shape[0] == 0:
                     if verbose > 0:
                         print(f"No new correlations to be calculated "
                               f"in window {winIndx}.")
                     break
                 else:
                     if verbose > 0:
-                        print(f"{pairList.shape[0]} new correlations to "
+                        print(f"{pair_array.shape[0]} new correlations to "
                               f"be calculated in window {winIndx}.")
 
                 # Resets the trajectory NP array for the current window.
@@ -1667,11 +1669,11 @@ class DNAproc:
                 gc.prepMIc(self.workU, traj, beg, end, self.numNodes, numDims)
 
                 # Create queues that feed processes with node pairs, and gather results.
-                data_queue = mp.Queue()
-                results_queue = mp.Queue()
+                data_queue: queue.Queue = mp.Queue()
+                results_queue: queue.Queue = mp.Queue()
 
                 # Loads the node pairs in the input queue
-                for atmList in pairList:
+                for atmList in pair_array:
                     data_queue.put(atmList)
 
                 # Creates processes.
@@ -1696,7 +1698,7 @@ class DNAproc:
                     procs.append(proc)
 
                 # Gathers all results.
-                for _ in self.progBar(range(len(pairList)),
+                for _ in self.progBar(range(len(pair_array)),
                                       desc="Contact Pair",
                                       leave=False,
                                       ascii=self.asciiMode):
@@ -1941,8 +1943,8 @@ class DNAproc:
 
         else:
 
-            inQueue = mp.Queue()
-            outQueue = mp.Queue()
+            inQueue: queue.Queue = mp.Queue()
+            outQueue: queue.Queue = mp.Queue()
 
             for win in range(self.numWinds):
                 inQueue.put(win)
@@ -2057,8 +2059,8 @@ class DNAproc:
                                                     reverse=True))
         else:
 
-            inQueue = mp.Queue()
-            outQueue = mp.Queue()
+            inQueue: queue.Queue = mp.Queue()
+            outQueue: queue.Queue = mp.Queue()
 
             for win in range(self.numWinds):
                 inQueue.put(win)
@@ -2285,19 +2287,19 @@ class DNAproc:
         numContactNodesL = len(contactNodes)
 
         # Filter pairs of nodes that have contacts
-        contactNodePairs = []
+        pairs_list = []
         for i in range(numContactNodesL):
             for j in range(i, numContactNodesL):
                 nodeI = contactNodesL[i]
                 nodeJ = contactNodesL[j]
                 if max([self.corrMatAll[win, nodeI, nodeJ]
                         for win in range(self.numWinds)]) > 0:
-                    contactNodePairs.append((nodeI, nodeJ))
+                    pairs_list.append((nodeI, nodeJ))
 
         # These are all pairs of nodes that make direct connections.
         # These pairs WILL INCLUDE pairs where both nodes are on the same
         # side of the interface.
-        contactNodePairs = np.asarray(contactNodePairs, dtype=np.int64)
+        contactNodePairs = np.asarray(pairs_list, dtype=np.int64)
 
         def inInterface(nodesAtmSel, i, j):
             segID1 = nodesAtmSel.atoms[i].segid

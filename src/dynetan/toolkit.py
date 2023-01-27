@@ -6,6 +6,7 @@
 # For trajectory analysis
 import MDAnalysis as mda
 import numpy
+from typing import Union
 
 
 def diagnostic():
@@ -19,7 +20,7 @@ def diagnostic():
     return mda.lib.distances.USED_OPENMP
 
 
-def getNGLSelFromNode(nodeIndx: int, atomsel: any, atom: bool = True) -> str:
+def getNGLSelFromNode(nodeIndx: int, atomsel: mda.AtomGroup, atom: bool = True) -> str:
     """Creates an atom selection for NGLView.
 
     Returns an atom selection for a whole residue or single atom in the NGL
@@ -45,7 +46,9 @@ def getNGLSelFromNode(nodeIndx: int, atomsel: any, atom: bool = True) -> str:
         return " and ".join([str(node.resid), node.resname])
 
 
-def getNodeFromSel(selection: str, atmsel: any, atm_to_node: any) -> numpy.ndarray:
+def getNodeFromSel(selection: str,
+                   atmsel: mda.AtomGroup,
+                   atm_to_node: numpy.ndarray) -> numpy.ndarray:
     """Gets the node index from an atom selection.
 
     Returns one or more node indices when given an MDAnalysis atom selection
@@ -71,7 +74,9 @@ def getNodeFromSel(selection: str, atmsel: any, atm_to_node: any) -> numpy.ndarr
     return nodes[nodes >= 0]
 
 
-def getSelFromNode(nodeIndx: int, atomsel: any, atom: bool = False):
+def getSelFromNode(nodeIndx: int,
+                   atomsel: mda.AtomGroup,
+                   atom: bool = False) -> str:
     """Gets the MDanalysis selection string from a node index.
 
     Given a node index, this function builds an atom selection string in the
@@ -109,9 +114,9 @@ def getSelFromNode(nodeIndx: int, atomsel: any, atom: bool = False):
 
 def getPath(src: int,
             trg: int,
-            nodesAtmSel: any,
-            preds: any,
-            win: int = 0) -> numpy.array:
+            nodesAtmSel: mda.AtomGroup,
+            preds: dict,
+            win: int = 0) -> numpy.ndarray:
     """Gets connecting path between nodes.
 
     This function recovers the list of nodes that connect `src` and `trg` nodes.
@@ -123,6 +128,7 @@ def getPath(src: int,
         src (int): Source node.
         trg (int): Target node.
         nodesAtmSel (obj): MDAnalysis atom-selection object.
+        preds (dict): Predecessor data in dictionary format.
         win (int): Selects the simulation window used to create optimal paths.
 
     Returns:
@@ -140,16 +146,16 @@ def getPath(src: int,
     assert win >= 0
 
     if src == trg:
-        return []
+        return numpy.asarray([])
 
     if src not in preds[win].keys():
-        return []
+        return numpy.asarray([])
 
     if trg not in preds[win][src].keys():
-        return []
+        return numpy.asarray([])
 
     if getSelFromNode(src, nodesAtmSel) == getSelFromNode(trg, nodesAtmSel):
-        return []
+        return numpy.asarray([])
 
     path = [trg]
 
@@ -191,7 +197,7 @@ def getLinIndexC(src: int, trgt: int, dim: int) -> int:
 def getCartDist(src: int,
                 trgt: int,
                 numNodes: int,
-                nodeDists: any,
+                nodeDists: numpy.ndarray,
                 distype: int = 0) -> float:
     """Get cartesian distance between nodes.
 
@@ -235,9 +241,9 @@ def getCartDist(src: int,
     return nodeDists[distype, k]
 
 
-def formatNodeGroups(atmGrp: any,
+def formatNodeGroups(atmGrp: mda.AtomGroup,
                      nodeAtmStrL: list = ["CA"],
-                     grpAtmStrL: [list, None] = None) -> None:
+                     grpAtmStrL: Union[list, None] = None) -> None:
     """Format code to facilitate the definition of node groups.
 
     This convenience function helps with the definition of node groups.
