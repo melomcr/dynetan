@@ -1149,7 +1149,7 @@ class DNAproc:
             print("(That's {0}%, by the way)".format(pairPc))
 
     # TODO: reduce complexity - Flake8 marks it at 20
-    def _remove_isolated(self, verbose: int = 0) -> None:
+    def _remove_isolated(self, verbose: int = 0) -> None:  # noqa: C901
 
         if verbose > 0:
             print("\nRemoving isolated nodes...\n")
@@ -1466,7 +1466,7 @@ class DNAproc:
                             mat[trgtIndx, nodeIndx] = 0
 
     # TODO: reduce complexity - Flake8 marks it at 27
-    def calcCor(self,
+    def calcCor(self,  # noqa: C901
                 ncores: int = 1,
                 forceCalc: bool = False,
                 verbose: int = 0) -> None:
