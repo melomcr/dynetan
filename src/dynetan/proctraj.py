@@ -2263,10 +2263,17 @@ class DNAproc:
                               selNcl,
                               betweenDist)
 
-            # This checks the type of the MDAnalysis results. If the selection
-            # or between distance lead to a NULL selection, the function returns
-            # 0 ("zero"), otherwise, it returns an "AtomGroup" instance.
             if not isinstance(contactSel, mda.AtomGroup):
+                # For MDAnalysis versions older than 2.4:
+                # This checks the type of the MDAnalysis results. If the selection
+                # or between distance lead to a NULL selection, the function returns
+                # 0 ("zero"), otherwise, it returns an "AtomGroup" instance.
+                if verbose > 1:
+                    warn_str = f"No contacts found in timestep {ts.time}"
+                    print(warn_str)
+            elif isinstance(contactSel, mda.AtomGroup) and (contactSel.n_atoms == 0):
+                # For MDAnalysis versions 2.4 and newer:
+                # The between method always returns an AtomGroup
                 if verbose > 1:
                     warn_str = f"No contacts found in timestep {ts.time}"
                     print(warn_str)
