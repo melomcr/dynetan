@@ -56,7 +56,7 @@ addopts = [
     "--cov=dynetan",
     "--cov-append",
     "--cov-report=term-missing",
-#    "--cov-report=xml"
+    "--cov-report=xml"
 ]
 
 # Individual warnings filters are specified as a sequence of fields separated by colons:

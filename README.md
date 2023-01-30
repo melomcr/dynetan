@@ -1,10 +1,11 @@
 Dynamical Network Analysis
 ===========================
 
-[![GH CI Tests](https://github.com/melomcr/dynetan/actions/workflows/github-actions-ci.yml/badge.svg)](https://github.com/melomcr/dynetan/actions/workflows/github-actions-ci.yml)
-[![Documentation Status](https://readthedocs.org/projects/dynamical-network-analysis/badge/?version=latest)](https://dynamical-network-analysis.readthedocs.io/en/latest/?badge=latest)
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/melomcr/dynetan)
 [![PyPI](https://img.shields.io/pypi/v/dynetan)](https://pypi.org/project/dynetan/)
+[![Documentation Status](https://readthedocs.org/projects/dynamical-network-analysis/badge/?version=latest)](https://dynamical-network-analysis.readthedocs.io/en/latest/?badge=latest)
+[![GH CI Tests](https://github.com/melomcr/dynetan/actions/workflows/github-actions-ci.yml/badge.svg)](https://github.com/melomcr/dynetan/actions/workflows/github-actions-ci.yml)
+[![codecov](https://codecov.io/gh/dynetan/branch/main/graph/badge.svg)](https://codecov.io/gh/dynetan)
 ![GitHub](https://img.shields.io/github/license/melomcr/dynetan)
 
 The Python implementation of Dynamical Network Analysis was built to provide all
