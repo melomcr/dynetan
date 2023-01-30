@@ -1,7 +1,7 @@
 Dynamical Network Analysis
 ===========================
 
-|CI-Tests|
+[![GH CI Tests](https://github.com/melomcr/dynetan/actions/workflows/github-actions-ci.yml/badge.svg)](https://github.com/melomcr/dynetan/actions/workflows/github-actions-ci.yml)
 
 The Python implementation of Dynamical Network Analysis was built to provide all
 functionalities necessary to the analysis of Molecular Dynamics (MD) simulations
@@ -52,7 +52,3 @@ DOI: 10.1016/j.jmb.2010.02.003](https://doi.org/10.1016/j.jmb.2010.02.003)
 
 * [Dynamical Networks in tRNA:protein complexes. PNAS (2009).
 DOI: 10.1073/pnas.0810961106](https://doi.org/10.1073/pnas.0810961106)
-
-.. |CI-Tests| image:: https://github.com/melomcr/dynetan/actions/workflows/github-actions-ci.yml/badge.svg
-   :alt: GitHub Actions Test Status
-   :target: https://github.com/melomcr/dynetan/actions/workflows/github-actions-ci.yml
