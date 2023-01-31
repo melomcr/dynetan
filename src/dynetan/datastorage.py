@@ -6,6 +6,8 @@ import numpy as np
 import numpy.typing as npt
 import pickle
 import h5py
+from typing import Any, Union
+import MDAnalysis as mda  # noqa
 
 
 class DNAdata:
@@ -24,58 +26,49 @@ class DNAdata:
 
     """
 
-    def __init__(self):
+    nxGraphs: Any
+    preds: Any
+    btws: Any
+    nodesComm: Any
+
+    def __init__(self) -> None:
         """Constructor
 
         Sets initial values for class variables.
 
         """
 
-        self.contactMat         = None
-
-        self.atomToNode         = None
-
-        self.nodesIxArray: npt.NDArray[np.float64]      = None
-
-        self.numNodes           = None
-
-        self.nodeDists          = None
-
-        self.corrMatAll         = None
-
-        self.distsAll           = None
-
-        self.preds              = None
-
-        self.maxDist            = None
-
-        self.maxDirectDist      = None
-
-        self.btws               = None
-
-        self.interNodePairs     = None
-
-        self.contactNodesInter  = None
-
-        self.nxGraphs           = None
-
-        self.nodesComm          = None
+        self.contactMat: npt.NDArray[np.int64] = np.zeros(1, dtype=np.int64)
+        self.atomToNode: npt.NDArray[np.int64] = np.zeros(1, dtype=np.int64)
+        self.nodesIxArray: npt.NDArray[np.float64] = np.zeros(1, dtype=np.float64)
+        self.numNodes: int = 0
+        self.nodeDists: Union[npt.NDArray[np.float64], None] = None
+        self.corrMatAll: npt.NDArray[np.float64] = np.zeros(1, dtype=np.float64)
+        self.distsAll: npt.NDArray[np.float64] = np.zeros(1, dtype=np.float64)
+        self.preds: Any
+        self.maxDist: float = 0.0
+        self.maxDirectDist: float = 0.0
+        self.btws: Any
+        self.interNodePairs: Union[npt.NDArray[np.int64], None] = None
+        self.contactNodesInter: Union[npt.NDArray[np.int64], None] = None
+        self.nxGraphs: Any
+        self.nodesComm: Any
 
         # The following attributes are not saved to file,
         #  they are reconstructed from the loaded information.
-        self.nodesAtmSel        = None
-        self.numWinds           = None
+        self.nodesAtmSel: mda.AtomGroup
+        self.numWinds: int = 0
 
-    def saveToFile(self, fileNameRoot):
-        '''Function that saves all the data stored in a DNAdata object.
+    def save_to_file(self, file_name_root: str) -> None:
+        """Function that saves all the data stored in a DNAdata object.
 
         Args:
-            fileNameRoot (str): Root of the multiple data files to be writen.
+            file_name_root (str): Root of the multiple data files to be writen.
 
-        '''
+        """
 
         # Opens the HDF5 file and store all data.
-        with h5py.File(fileNameRoot + ".hf", "w") as f:
+        with h5py.File(file_name_root + ".hf", "w") as f:
 
             # f_contactMat
             f.create_dataset("contactMat",
@@ -139,24 +132,24 @@ class DNAdata:
                                  dtype=self.contactNodesInter.dtype,
                                  data=self.contactNodesInter)
 
-        with open(fileNameRoot + "_nxGraphs.pickle", 'wb') as outfile:
+        with open(file_name_root + "_nxGraphs.pickle", 'wb') as outfile:
             pickle.dump(self.nxGraphs, outfile)
 
-        np.save(fileNameRoot + "_preds.npy", self.preds)
+        np.save(file_name_root + "_preds.npy", self.preds)
 
-        np.save(fileNameRoot + "_btws.npy", self.btws)
+        np.save(file_name_root + "_btws.npy", self.btws)
 
-        np.save(fileNameRoot + "_nodesComm.npy", self.nodesComm)
+        np.save(file_name_root + "_nodesComm.npy", self.nodesComm)
 
-    def loadFromFile(self, fileNameRoot):
+    def load_from_file(self, file_name_root: str):
         """Function that loads all the data stored in a DNAdata object.
 
         Args:
-            fileNameRoot (str): Root of the multiple data files to be loaded.
+            file_name_root (str): Root of the multiple data files to be loaded.
 
         """
 
-        with h5py.File(fileNameRoot + ".hf", "r") as f:
+        with h5py.File(file_name_root + ".hf", "r") as f:
 
             for key in f.keys():
                 print(key, f[key].dtype, f[key].shape, f[key].size)
@@ -170,16 +163,16 @@ class DNAdata:
                     # For a *scalar* H5Py Dataset, we index using an empty tuple.
                     setattr(self, key, f[key][()])
 
-        with open(fileNameRoot + "_nxGraphs.pickle", 'rb') as infile:
+        with open(file_name_root + "_nxGraphs.pickle", 'rb') as infile:
             self.nxGraphs = pickle.load(infile)
 
-        self.preds = np.load(fileNameRoot + "_preds.npy",
+        self.preds = np.load(file_name_root + "_preds.npy",
                              allow_pickle=True).item()
 
-        self.btws = np.load(fileNameRoot + "_btws.npy",
+        self.btws = np.load(file_name_root + "_btws.npy",
                             allow_pickle=True).item()
 
-        self.nodesComm = np.load(fileNameRoot + "_nodesComm.npy",
+        self.nodesComm = np.load(file_name_root + "_nodesComm.npy",
                                  allow_pickle=True).item()
 
         # Load derived attributes

@@ -45,7 +45,7 @@ def test_data_storage(tmp_path, dnap_omp):
 
     # Load Data
     dna_data = DNAdata()
-    dna_data.loadFromFile(fileNameRoot=path_root)
+    dna_data.load_from_file(file_name_root=path_root)
 
     # Check if loaded object has all expected data
     assert dna_data.numWinds == 2

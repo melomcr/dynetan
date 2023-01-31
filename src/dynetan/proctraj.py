@@ -388,7 +388,7 @@ class DNAproc:
         if self.contactNodesInter is not None:
             self.dnaData.contactNodesInter = self.contactNodesInter
 
-        self.dnaData.saveToFile(fileNameRoot)
+        self.dnaData.save_to_file(fileNameRoot)
 
     def saveReducedTraj(self, fileNameRoot="dnaData", stride=1) -> None:
         """Save a reduced trajectory to file.
