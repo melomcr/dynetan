@@ -59,9 +59,23 @@ backend_types = ["serial", "openmp"]
 ##################################################
 
 
-def is_proteic(resname):
+def is_proteic(resname: str) -> bool:
     mda_known_prot_res = mda.core.selection.ProteinSelection.prot_res
     return resname in mda_known_prot_res
+
+
+def in_interface(nodes_atm_sel: mda.AtomGroup,
+                 node_i: int,
+                 node_j: int,
+                 seg_ids: list) -> bool:
+    segID1 = nodes_atm_sel.atoms[node_i].segid
+    segID2 = nodes_atm_sel.atoms[node_j].segid
+
+    if (segID1 != segID2) and (
+            (segID1 in seg_ids) or (segID2 in seg_ids)):
+        return True
+    else:
+        return False
 
 
 class DNAproc:
@@ -89,7 +103,7 @@ class DNAproc:
 
         """
 
-        self.dnaData = ds.DNAdata()
+        self.dnaData: ds.DNAdata = ds.DNAdata()
 
         # Basic DNA parameters
         self.contactPersistence = 0.75
@@ -1007,17 +1021,17 @@ class DNAproc:
                       flush=True)
 
             # Calculates distances to determine contact matrix
-            ct.getContactsC(selectionAtms,
-                            self.numNodes,
-                            nAtoms,
-                            self.cutoffDist,
-                            tmpDists,
-                            tmpDistsAtms,
-                            contact_mat,
-                            self.atomToNode,
-                            self.nodeGroupIndicesNP,
-                            self.nodeGroupIndicesNPAux,
-                            distMode=self.distanceMode)
+            ct.get_contacts_c(selectionAtms,
+                              self.numNodes,
+                              nAtoms,
+                              self.cutoffDist,
+                              tmpDists,
+                              tmpDistsAtms,
+                              contact_mat,
+                              self.atomToNode,
+                              self.nodeGroupIndicesNP,
+                              self.nodeGroupIndicesNPAux,
+                              dist_mode=self.distanceMode)
 
     def findContacts(self, stride: int = 1, verbose: int = 1) -> None:
         """Finds all nodes in contact.
@@ -1782,12 +1796,17 @@ class DNAproc:
                               total=numFramesDists,
                               desc="MEAN: Timesteps",
                               ascii=self.asciiMode):
-            ct.calcDistances(selectionAtms, self.numNodes, selectionAtms.n_atoms,
-                             self.atomToNode, self.cutoffDist,
-                             self.nodeGroupIndicesNP, self.nodeGroupIndicesNPAux,
-                             nodeDistsTmp, backend,
-                             distMode=self.distanceMode,
-                             verbose=verbose)
+            ct.calc_distances(selectionAtms,
+                              self.numNodes,
+                              selectionAtms.n_atoms,
+                              self.atomToNode,
+                              self.cutoffDist,
+                              self.nodeGroupIndicesNP,
+                              self.nodeGroupIndicesNPAux,
+                              nodeDistsTmp,
+                              backend,
+                              dist_mode=self.distanceMode,
+                              verbose=verbose)
 
             # Mean
             self.nodeDists[0, :] += nodeDistsTmp
@@ -1803,14 +1822,17 @@ class DNAproc:
                               total=numFramesDists,
                               desc="SEM/MIN/MAX: Timesteps",
                               ascii=self.asciiMode):
-            ct.calcDistances(selectionAtms,
-                             self.numNodes,
-                             selectionAtms.n_atoms,
-                             self.atomToNode, self.cutoffDist,
-                             self.nodeGroupIndicesNP, self.nodeGroupIndicesNPAux,
-                             nodeDistsTmp, backend,
-                             distMode=self.distanceMode,
-                             verbose=verbose)
+            ct.calc_distances(selectionAtms,
+                              self.numNodes,
+                              selectionAtms.n_atoms,
+                              self.atomToNode,
+                              self.cutoffDist,
+                              self.nodeGroupIndicesNP,
+                              self.nodeGroupIndicesNPAux,
+                              nodeDistsTmp,
+                              backend,
+                              dist_mode=self.distanceMode,
+                              verbose=verbose)
 
             # Accumulates the squared difference
             self.nodeDists[1, :] += np.square(self.nodeDists[0, :] - nodeDistsTmp)
@@ -2308,20 +2330,10 @@ class DNAproc:
         # side of the interface.
         contactNodePairs = np.asarray(pairs_list, dtype=np.int64)
 
-        def inInterface(nodesAtmSel, i, j):
-            segID1 = nodesAtmSel.atoms[i].segid
-            segID2 = nodesAtmSel.atoms[j].segid
-
-            if (segID1 != segID2) and (
-                    (segID1 in self.segIDs) or (segID2 in self.segIDs)):
-                return True
-            else:
-                return False
-
         # These are pairs where the nodes are NOT on the same selection,
         # that is, pairs that connect the two atom selections.
         self.interNodePairs = [(i, j) for i, j in contactNodePairs
-                               if inInterface(self.nodesAtmSel, i, j)]
+                               if in_interface(self.nodesAtmSel, i, j, self.segIDs)]
         self.interNodePairs = np.asarray(self.interNodePairs, dtype=np.int64)
 
         if verbose > 0:

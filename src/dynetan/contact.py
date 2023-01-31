@@ -6,9 +6,10 @@
 
 import numpy as np
 import numpy.typing as npt
+import MDAnalysis as mda
 
-from MDAnalysis.analysis            import distances            as mdadist
-from MDAnalysis.lib                 import distances            as mdalibdist
+from MDAnalysis.analysis import distances as mdadist
+from MDAnalysis.lib import distances as mdalibdist
 from numba import jit
 
 import cython
@@ -19,12 +20,12 @@ from datetime import timedelta
 
 from typing import Any
 
-MODE_ALL    = 0
+MODE_ALL    = 0  # noqa:E221
 MODE_CAPPED = 1
 
 
 @jit('i8(i8, i8, i8)', nopython=True)
-def getLinIndexNumba(src, trgt, n):  # pragma: no cover
+def get_lin_index_numba(src, trgt, n):  # pragma: no cover
     """Conversion from 2D matrix indices to 1D triangular.
 
     Converts from 2D matrix indices to 1D (n*(n-1)/2) unwrapped triangular
@@ -47,10 +48,13 @@ def getLinIndexNumba(src, trgt, n):  # pragma: no cover
 
 
 @jit('void(i8, i8, f8[:], i8[:], i8[:], i8[:], f8[:])', nopython=True)
-def atmToNodeDist(numNodes, nAtoms, tmpDists, atomToNode,
-                  nodeGroupIndicesNP,
-                  nodeGroupIndicesNPAux,
-                  nodeDists):  # pragma: no cover
+def atm_to_node_dist(num_nodes,
+                     n_atoms,
+                     tmp_dists,
+                     atom_to_node,
+                     node_group_indices_np,
+                     node_group_indices_np_aux,
+                     node_dists):  # pragma: no cover
     """Translates MDAnalysis distance calculation to node distance matrix.
 
     This function is JIT compiled by Numba to optimize the search for shortest
@@ -66,74 +70,82 @@ def atmToNodeDist(numNodes, nAtoms, tmpDists, atomToNode,
     which is optimized for contact detection.
 
     Args:
-        numNodes (int): Number of nodes in the system.
-        nAtoms (int) : Number of atoms in atom groups represented by system nodes.
+        num_nodes (int): Number of nodes in the system.
+        n_atoms (int) : Number of atoms in atom groups represented by system nodes.
             Usually hydrogen atoms are not included in contact detection, and
             are not present in atom groups.
-        tmpDists (obj) : Temporary pre-allocated NumPy array with atom distances.
+        tmp_dists (obj) : Temporary pre-allocated NumPy array with atom distances.
             This is the result of MDAnalysis `self_distance_array` calculation.
-        atomToNode (obj) : NumPy array that maps atoms in atom groups to their
+        atom_to_node (obj) : NumPy array that maps atoms in atom groups to their
             respective nodes.
-        nodeGroupIndicesNP (obj) : NumPy array with atom indices for all atoms
+        node_group_indices_np (obj) : NumPy array with atom indices for all atoms
             in each node group.
-        nodeGroupIndicesNPAux (obj) : Auxiliary NumPy array with the indices of
+        node_group_indices_np_aux (obj) : Auxiliary NumPy array with the indices of
             the first atom in each atom group, as listed in `nodeGroupIndicesNP`.
-        nodeDists (obj) : Pre-allocated array to store cartesian distances
+        node_dists (obj) : Pre-allocated array to store cartesian distances
             between *nodes*. This is a linearized upper triangular matrix.
 
     """
     # PyTest-cov does not detect test coverage over JIT compiled Numba functions
 
-    maxVal: Any = np.finfo(np.float64).max
+    max_val: Any = np.finfo(np.float64).max
 
     # Initialize with maximum possible value of a float64
-    tmpDistsAtms: npt.NDArray[np.float64] = np.full(nAtoms, maxVal, dtype=np.float64)
+    tmp_dists_atms: npt.NDArray[np.float64] = np.full(n_atoms, max_val, dtype=np.float64)
 
     # We iterate until we have only one node left
-    for i in range(numNodes - 1):
+    for i in range(num_nodes - 1):
 
         # Initializes the array for this node.
-        tmpDistsAtms.fill(maxVal)
+        tmp_dists_atms.fill(max_val)
 
         # index of first atom in node "i"
-        nodeAtmIndx = nodeGroupIndicesNPAux[i]
+        node_atm_indx = node_group_indices_np_aux[i]
         # index of first atom in node "i+1"
-        nodeAtmIndxNext = nodeGroupIndicesNPAux[i+1]
+        node_atm_indx_next = node_group_indices_np_aux[i + 1]
 
         # Gets first atom in next node
-        nextIfirst = nodeGroupIndicesNP[nodeAtmIndxNext]
+        next_i_first = node_group_indices_np[node_atm_indx_next]
 
         # Per node:  Iterate over atoms from node i
-        for nodeI_k in nodeGroupIndicesNP[nodeAtmIndx:nodeAtmIndxNext]:
+        for node_i_k in node_group_indices_np[node_atm_indx:node_atm_indx_next]:
 
             # Go from 2D indices to 1D (n*(n-1)/2) indices:
-            j1 = getLinIndexNumba(nodeI_k, nextIfirst, nAtoms)
-            jend = j1 + (nAtoms - nextIfirst)
+            j1 = get_lin_index_numba(node_i_k, next_i_first, n_atoms)
+            jend = j1 + (n_atoms - next_i_first)
 
             # Gets the shortest distance between atoms in different nodes
-            tmpDistsAtms[nextIfirst:] = np.where(
-                tmpDists[j1: jend] < tmpDistsAtms[nextIfirst:],
-                tmpDists[j1: jend],
-                tmpDistsAtms[nextIfirst:])
+            tmp_dists_atms[next_i_first:] = np.where(
+                tmp_dists[j1: jend] < tmp_dists_atms[next_i_first:],
+                tmp_dists[j1: jend],
+                tmp_dists_atms[next_i_first:])
 
-        for pairNode in range(i+1, numNodes):
+        for pairNode in range(i+1, num_nodes):
 
             # Access the shortest distances between atoms from "pairNode" and
             # the current node "i"
-            minDist = np.min(tmpDistsAtms[np.where(atomToNode == pairNode)])
+            minDist = np.min(tmp_dists_atms[np.where(atom_to_node == pairNode)])
 
             # Go from 2D node indices to 1D (numNodes*(numNodes-1)/2) indices:
-            ijLI = getLinIndexNumba(i, pairNode, numNodes)
+            ijLI = get_lin_index_numba(i, pairNode, num_nodes)
 
-            nodeDists[ijLI] = minDist
+            node_dists[ijLI] = minDist
 
 
 # High memory usage (nAtoms*(nAtoms-1)/2), calcs all atom distances at once.
 # We use self_distance_array and iterate over the trajectory.
 # https://www.mdanalysis.org/mdanalysis/documentation_pages/analysis/distances.html
-def calcDistances(selection, numNodes, nAtoms, atomToNode,  cutoffDist,
-                  nodeGroupIndicesNP, nodeGroupIndicesNPAux, nodeDists,
-                  backend="serial", distMode=MODE_ALL, verbose=0):
+def calc_distances(selection: mda.AtomGroup,
+                   num_nodes: int,
+                   n_atoms: int,
+                   atom_to_node: npt.NDArray[np.int64],
+                   cutoff_dist: float,
+                   node_group_indices_np: npt.NDArray[np.int64],
+                   node_group_indices_np_aux: npt.NDArray[np.int64],
+                   node_dists: npt.NDArray[np.float64],
+                   backend: str = "serial",
+                   dist_mode: int = MODE_ALL,
+                   verbose: int = 0):
     """Executes MDAnalysis atom distance calculation and node cartesian
     distance calculation.
 
@@ -149,38 +161,39 @@ def calcDistances(selection, numNodes, nAtoms, atomToNode,  cutoffDist,
 
     Args:
         selection (str) : Atom selection for the system being analyzed.
-        numNodes (int): Number of nodes in the system.
-        nAtoms (int) : Number of atoms in atom groups represented by system nodes.
+        num_nodes (int): Number of nodes in the system.
+        n_atoms (int) : Number of atoms in atom groups represented by system nodes.
             Usually hydrogen atoms are not included in contact detection,
             and are not present in atom groups.
-        atomToNode (obj) : NumPy array that maps atoms in atom groups to their
+        atom_to_node (obj) : NumPy array that maps atoms in atom groups to their
             respective nodes.
-        cutoffDist (float): Distance cutoff used to capp distance calculations.
-        nodeGroupIndicesNP (obj) : NumPy array with atom indices for all atoms
+        cutoff_dist (float): Distance cutoff used to capp distance calculations.
+        node_group_indices_np (obj) : NumPy array with atom indices for all atoms
             in each node group.
-        nodeGroupIndicesNPAux (obj) : Auxiliary NumPy array with the indices of
+        node_group_indices_np_aux (obj) : Auxiliary NumPy array with the indices of
             the first atom in each atom group, as listed in `nodeGroupIndicesNP`.
-        nodeDists (obj) : Pre-allocated array to store cartesian distances.
+        node_dists (obj) : Pre-allocated array to store cartesian distances.
         backend (str) : Controls how MDAnalysis will perform its distance
             calculations. Options are  `serial` and `openmp`. This option is
             ignored if the distance mode is not "all".
-        distMode (int): Distance calculation method. Options are 0
+        dist_mode (int): Distance calculation method. Options are 0
             (for mode "all") and 1 (for mode "capped").
         verbose (int): Controls informational output.
 
     """
 
     if verbose > 1:
-        msgStr = "There are {} nodes and {} atoms in this system."
-        print(msgStr.format(numNodes, nAtoms))
+        msg_str = "There are {} nodes and {} atoms in this system."
+        print(msg_str.format(num_nodes, n_atoms))
 
-        print("creating array with {} elements...".format(int(nAtoms * (nAtoms - 1) / 2)))
+        n_elements = int(n_atoms * (n_atoms - 1) / 2)
+        print("creating array with {} elements...".format(n_elements))
         start = timer()
 
-    if distMode == MODE_ALL:
+    if dist_mode == MODE_ALL:
 
         tmpDists: npt.NDArray[np.float64] = \
-            np.zeros(int(nAtoms*(nAtoms-1)/2), dtype=np.float64)
+            np.zeros(int(n_atoms * (n_atoms - 1) / 2), dtype=np.float64)
 
         if verbose > 1:
             end = timer()
@@ -196,9 +209,9 @@ def calcDistances(selection, numNodes, nAtoms, atomToNode,  cutoffDist,
             end = timer()
             print("Time for contact calculation:", timedelta(seconds=end-start))
 
-    if distMode == MODE_CAPPED:
+    elif dist_mode == MODE_CAPPED:
 
-        tmpDists = np.full(int(nAtoms*(nAtoms-1)/2), cutoffDist*2, dtype=float)
+        tmpDists = np.full(int(n_atoms * (n_atoms - 1) / 2), cutoff_dist * 2, dtype=float)
 
         if verbose > 1:
             end = timer()
@@ -209,7 +222,7 @@ def calcDistances(selection, numNodes, nAtoms, atomToNode,  cutoffDist,
 
         # method options are: 'bruteforce' 'nsgrid' 'pkdtree'
         pairs, distances = mdalibdist.self_capped_distance(selection.positions,
-                                                           max_cutoff=cutoffDist,
+                                                           max_cutoff=cutoff_dist,
                                                            min_cutoff=None,
                                                            box=None,
                                                            method='pkdtree',
@@ -224,7 +237,7 @@ def calcDistances(selection, numNodes, nAtoms, atomToNode,  cutoffDist,
             print("loading distances in array...")
             start = timer()
             if verbose > 1:
-                startLoop = timer()
+                start_loop = timer()
 
         for k in range(len(pairs)):
             i, j = pairs[k]
@@ -232,25 +245,33 @@ def calcDistances(selection, numNodes, nAtoms, atomToNode,  cutoffDist,
             if verbose > 1:
                 if not k % 1000:
                     print("Loaded {} distances.".format(k))
-                    elapsTime = timedelta(seconds=timer()-startLoop)
-                    print("Time for {} distances: {}".format(k, elapsTime))
-                    startLoop = timer()
+                    elapsed_time = timedelta(seconds=timer() - start_loop)
+                    print("Time for {} distances: {}".format(k, elapsed_time))
+                    start_loop = timer()
 
             # Go from 2D node indices to 1D (numNodes*(numNodes-1)/2) indices:
-            ijLI = getLinIndexNumba(i, j, nAtoms)
+            ijLI = get_lin_index_numba(i, j, n_atoms)
             tmpDists[ijLI] = distances[k]
 
         if verbose > 1:
             end = timer()
             print("Time for loading distances:", timedelta(seconds=end-start))
 
+    else:
+        raise Exception(f"Unknown distance calculation mode: {dist_mode}")
+
     if verbose > 1:
         print("running atmToNodeDist...")
         start = timer()
 
     # Translate atoms distances in minimum node distance.
-    atmToNodeDist(numNodes, nAtoms, tmpDists, atomToNode, nodeGroupIndicesNP,
-                  nodeGroupIndicesNPAux, nodeDists)
+    atm_to_node_dist(num_nodes,
+                     n_atoms,
+                     tmpDists,
+                     atom_to_node,
+                     node_group_indices_np,
+                     node_group_indices_np_aux,
+                     node_dists)
 
     if verbose > 1:
         end = timer()
@@ -262,7 +283,7 @@ def calcDistances(selection, numNodes, nAtoms, atomToNode,  cutoffDist,
 @cython.locals(src=cython.int, trgt=cython.int, n=cython.int)
 @cython.boundscheck(False)  # turn off bounds-checking for entire function
 @cython.wraparound(False)  # turn off negative index wrapping for entire function
-def getLinIndexC(src, trgt, n):
+def get_lin_index_c(src, trgt, n):
     """Conversion from 2D matrix indices to 1D triangular.
 
     Converts from 2D matrix indices to 1D (n*(n-1)/2) unwrapped triangular
@@ -294,13 +315,13 @@ def getLinIndexC(src, trgt, n):
                nodeGroupIndicesNPAux="np.ndarray[np.int_t, ndim=1]")
 @cython.boundscheck(False)  # turn off bounds-checking for entire function
 @cython.wraparound(False)  # turn off negative index wrapping for entire function
-def calcContactC(numNodes, nAtoms, cutoffDist,
-                 tmpDists,
-                 tmpDistsAtms,
-                 contactMat,
-                 atomToNode,
-                 nodeGroupIndicesNP,
-                 nodeGroupIndicesNPAux):
+def calc_contact_c(num_nodes, n_atoms, cutoff_dist,
+                   tmp_dists,
+                   tmp_dists_atms,
+                   contact_mat,
+                   atom_to_node,
+                   node_group_indices_np,
+                   node_group_indices_np_aux):
     """Translates MDAnalysis distance calculation to node contact matrix.
 
     This function is Cython compiled to optimize the search for nodes in contact.
@@ -316,66 +337,67 @@ def calcContactC(numNodes, nAtoms, cutoffDist,
     pair of nodes had at least one contact.
 
     Args:
-        numNodes (int): Number of nodes in the system.
-        nAtoms (int) : Number of atoms in atom groups represented by system nodes.
+        num_nodes (int): Number of nodes in the system.
+        n_atoms (int) : Number of atoms in atom groups represented by system nodes.
             Usually hydrogen atoms are not included in contact detection, and
             are not present in atom groups.
-        cutoffDist (float) : Distance at which atoms are no longer considered
+        cutoff_dist (float) : Distance at which atoms are no longer considered
             'in contact'.
-        tmpDists (obj) : Temporary pre-allocated NumPy array with atom distances.
+        tmp_dists (obj) : Temporary pre-allocated NumPy array with atom distances.
             This is the result of MDAnalysis `self_distance_array` calculation.
-        tmpDistsAtms (obj) : Temporary pre-allocated NumPy array to store the
+        tmp_dists_atms (obj) : Temporary pre-allocated NumPy array to store the
             shortest distance between atoms in different nodes.
-        contactMat (obj) : Pre-allocated NumPy matrix where node contacts will
+        contact_mat (obj) : Pre-allocated NumPy matrix where node contacts will
             be stored.
-        atomToNode (obj) : NumPy array that maps atoms in atom groups to their
+        atom_to_node (obj) : NumPy array that maps atoms in atom groups to their
             respective nodes.
-        nodeGroupIndicesNP (obj) : NumPy array with atom indices for all atoms
+        node_group_indices_np (obj) : NumPy array with atom indices for all atoms
             in each node group.
-        nodeGroupIndicesNPAux (obj) : Auxiliary NumPy array with the indices of
+        node_group_indices_np_aux (obj) : Auxiliary NumPy array with the indices of
             the first atom in each atom group, as listed in `nodeGroupIndicesNP`.
 
     """
 
-    nextIfirst = cython.declare(cython.int)
+    next_i_first = cython.declare(cython.int)
 
     # Cython types are evaluated as for cdef declarations
     j1: cython.int
     jend: cython.int
     i: cython.int
-    nodeI_k: cython.int
-    nodeAtmIndx: cython.int
-    nodeAtmIndxNext: cython.int
+    node_i_k: cython.int
+    node_atm_indx: cython.int
+    node_atm_indx_next: cython.int
 
     # We iterate until we have only one node left
-    for i in range(numNodes - 1):
+    for i in range(num_nodes - 1):
 
         # Initializes the array for this node.
-        tmpDistsAtms.fill(cutoffDist*2)
+        tmp_dists_atms.fill(cutoff_dist * 2)
 
         # index of first atom in node "i"
-        nodeAtmIndx = nodeGroupIndicesNPAux[i]
+        node_atm_indx = node_group_indices_np_aux[i]
         # index of first atom in node "i+1"
-        nodeAtmIndxNext = nodeGroupIndicesNPAux[i+1]
+        node_atm_indx_next = node_group_indices_np_aux[i + 1]
 
         # Gets first atom in next node
-        nextIfirst = nodeGroupIndicesNP[nodeAtmIndxNext]
+        next_i_first = node_group_indices_np[node_atm_indx_next]
 
         # Per node:  Iterate over atoms from node i
-        for nodeI_k in nodeGroupIndicesNP[nodeAtmIndx:nodeAtmIndxNext]:
+        for node_i_k in node_group_indices_np[node_atm_indx:node_atm_indx_next]:
 
             # Go from 2D indices to 1D (n*(n-1)/2) indices:
-            j1 = getLinIndexC(nodeI_k, nextIfirst, nAtoms)
-            jend = j1 + (nAtoms - nextIfirst)
+            j1 = get_lin_index_c(node_i_k, next_i_first, n_atoms)
+            jend = j1 + (n_atoms - next_i_first)
 
             # Gets the shortest distance between atoms in different nodes
-            tmpDistsAtms[nextIfirst:] = np.where(
-                tmpDists[j1: jend] < tmpDistsAtms[nextIfirst:],
-                tmpDists[j1: jend],
-                tmpDistsAtms[nextIfirst:])
+            tmp_dists_atms[next_i_first:] = np.where(
+                tmp_dists[j1: jend] < tmp_dists_atms[next_i_first:],
+                tmp_dists[j1: jend],
+                tmp_dists_atms[next_i_first:])
 
         # Adds one to the contact to indicate that this frame had a contact.
-        contactMat[i, np.unique(atomToNode[np.where(tmpDistsAtms < cutoffDist)[0]])] += 1
+        indices = np.unique(atom_to_node[np.where(tmp_dists_atms < cutoff_dist)[0]])
+        contact_mat[i, indices] += 1
 
 
 # High memory usage (nAtoms*(nAtoms-1)/2), calcs all atom distances at once.
@@ -390,17 +412,17 @@ def calcContactC(numNodes, nAtoms, cutoffDist,
                nodeGroupIndicesNPAux="np.ndarray[np.int_t, ndim=1]")
 @cython.boundscheck(False)  # turn off bounds-checking for entire function
 @cython.wraparound(False)  # turn off negative index wrapping for entire function
-def getContactsC(selection,
-                 numNodes,
-                 nAtoms,
-                 cutoffDist,
-                 tmpDists,
-                 tmpDistsAtms,
-                 contactMat,
-                 atomToNode,
-                 nodeGroupIndicesNP,
-                 nodeGroupIndicesNPAux,
-                 distMode=MODE_ALL):
+def get_contacts_c(selection: mda.AtomGroup,
+                   num_nodes,
+                   n_atoms,
+                   cutoff_dist,
+                   tmp_dists,
+                   tmp_dists_atms,
+                   contact_mat,
+                   atom_to_node,
+                   node_group_indices_np,
+                   node_group_indices_np_aux,
+                   dist_mode=MODE_ALL):
     """Executes MDAnalysis atom distance calculation and node contact detection.
 
     This function is Cython compiled as a wrapper for two optimized distance
@@ -409,48 +431,50 @@ def getContactsC(selection,
     All results are stored in pre-allocated NumPy arrays.
 
     Args:
-        selection (str) : Atom selection for the system being analyzed.
-        numNodes (int): Number of nodes in the system.
-        nAtoms (int) : Number of atoms in atom groups represented by system nodes.
+        selection (MDAnalysis.AtomGroup) : Atom selection for the system being analyzed.
+        num_nodes (int): Number of nodes in the system.
+        n_atoms (int) : Number of atoms in atom groups represented by system nodes.
             Usually hydrogen atoms are not included in contact detection, and
                 are not present in atom groups.
-        cutoffDist (float) : Distance at which atoms are no longer
+        cutoff_dist (float) : Distance at which atoms are no longer
             considered 'in contact'.
-        tmpDists (obj) : Temporary pre-allocated NumPy array with atom distances.
+        tmp_dists (obj) : Temporary pre-allocated NumPy array with atom distances.
             This is the result of MDAnalysis `self_distance_array` calculation.
-        tmpDistsAtms (obj) : Temporary pre-allocated NumPy array to store the
+        tmp_dists_atms (obj) : Temporary pre-allocated NumPy array to store the
             shortest distance between atoms in different nodes.
-        contactMat (obj) : Pre-allocated NumPy matrix where node contacts will
+        contact_mat (obj) : Pre-allocated NumPy matrix where node contacts will
             be stored.
-        atomToNode (obj) : NumPy array that maps atoms in atom groups to their
+        atom_to_node (obj) : NumPy array that maps atoms in atom groups to their
             respective nodes.
-        nodeGroupIndicesNP (obj) : NumPy array with atom indices for all atoms
+        node_group_indices_np (obj) : NumPy array with atom indices for all atoms
             in each node group.
-        nodeGroupIndicesNPAux (obj) : Auxiliary NumPy array with the indices of
+        node_group_indices_np_aux (obj) : Auxiliary NumPy array with the indices of
             the first atom in each atom group, as listed in `nodeGroupIndicesNP`.
+        dist_mode: Method for distance calculation in MDAnalysis (all or capped).
 
     """
 
-    if distMode == MODE_ALL:
+    if dist_mode == MODE_ALL:
         # serial vs OpenMP
         mdadist.self_distance_array(selection.positions,
-                                    result=tmpDists,
+                                    result=tmp_dists,
                                     backend='openmp')
 
-    if distMode == MODE_CAPPED:
+    if dist_mode == MODE_CAPPED:
         # method options are: 'bruteforce' 'nsgrid' 'pkdtree'
         pairs, distances = mdalibdist.self_capped_distance(
-            selection.positions,
-            max_cutoff=cutoffDist,
+            reference=selection.positions,
+            max_cutoff=cutoff_dist,
             min_cutoff=None,
             box=None,
             method='pkdtree',
             return_distances=True)
 
         for k, [i, j] in enumerate(pairs):
-            # Go from 2D node indices to 1D (nAtoms*(nAtoms-1)/2) indices:
-            ijLI = getLinIndexC(i, j, nAtoms)
-            tmpDists[ijLI] = distances[k]
+            # Go from 2D node indices to 1D (n_atoms*(n_atoms-1)/2) indices:
+            ijLI = get_lin_index_c(i, j, n_atoms)
+            tmp_dists[ijLI] = distances[k]
 
-    calcContactC(numNodes, nAtoms, cutoffDist, tmpDists, tmpDistsAtms,
-                 contactMat, atomToNode, nodeGroupIndicesNP, nodeGroupIndicesNPAux)
+    calc_contact_c(num_nodes, n_atoms, cutoff_dist, tmp_dists,
+                   tmp_dists_atms, contact_mat, atom_to_node,
+                   node_group_indices_np, node_group_indices_np_aux)
