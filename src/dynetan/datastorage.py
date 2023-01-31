@@ -141,7 +141,7 @@ class DNAdata:
 
         np.save(file_name_root + "_nodesComm.npy", self.nodesComm)
 
-    def load_from_file(self, file_name_root: str):
+    def load_from_file(self, file_name_root: str) -> None:
         """Function that loads all the data stored in a DNAdata object.
 
         Args:

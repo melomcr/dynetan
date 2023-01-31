@@ -145,7 +145,7 @@ def calc_distances(selection: mda.AtomGroup,
                    node_dists: npt.NDArray[np.float64],
                    backend: str = "serial",
                    dist_mode: int = MODE_ALL,
-                   verbose: int = 0):
+                   verbose: int = 0) -> None:
     """Executes MDAnalysis atom distance calculation and node cartesian
     distance calculation.
 
@@ -409,20 +409,21 @@ def calc_contact_c(num_nodes, n_atoms, cutoff_dist,
                contactMat="np.ndarray[np.int_t, ndim=2]",
                atomToNode="np.ndarray[np.int_t, ndim=1]",
                nodeGroupIndicesNP="np.ndarray[np.int_t, ndim=1]",
-               nodeGroupIndicesNPAux="np.ndarray[np.int_t, ndim=1]")
+               nodeGroupIndicesNPAux="np.ndarray[np.int_t, ndim=1],",
+               dist_mod=cython.int)
 @cython.boundscheck(False)  # turn off bounds-checking for entire function
 @cython.wraparound(False)  # turn off negative index wrapping for entire function
 def get_contacts_c(selection: mda.AtomGroup,
-                   num_nodes,
-                   n_atoms,
-                   cutoff_dist,
-                   tmp_dists,
-                   tmp_dists_atms,
-                   contact_mat,
-                   atom_to_node,
-                   node_group_indices_np,
-                   node_group_indices_np_aux,
-                   dist_mode=MODE_ALL):
+                   num_nodes: int,
+                   n_atoms: int,
+                   cutoff_dist: float,
+                   tmp_dists: npt.NDArray[np.float64],
+                   tmp_dists_atms: npt.NDArray[np.float64],
+                   contact_mat: npt.NDArray[np.int64],
+                   atom_to_node: npt.NDArray[np.int64],
+                   node_group_indices_np: npt.NDArray[np.int64],
+                   node_group_indices_np_aux: npt.NDArray[np.int64],
+                   dist_mode: int = MODE_ALL) -> None:
     """Executes MDAnalysis atom distance calculation and node contact detection.
 
     This function is Cython compiled as a wrapper for two optimized distance

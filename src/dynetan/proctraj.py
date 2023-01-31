@@ -348,7 +348,7 @@ class DNAproc:
         """
         return self.workU
 
-    def saveData(self, fileNameRoot="dnaData") -> None:
+    def saveData(self, file_name_root: str = "dnaData") -> None:
         """Save all network analysis data to file.
 
         This function automates the creation of a
@@ -357,7 +357,7 @@ class DNAproc:
         :py:func:`~dynetan.datastorage.DNAdata.saveToFile` function.
 
         Args:
-            fileNameRoot (str) : Root of the multiple data files to be writen.
+            file_name_root (str) : Root of the multiple data files to be writen.
 
         """
 
@@ -388,9 +388,9 @@ class DNAproc:
         if self.contactNodesInter is not None:
             self.dnaData.contactNodesInter = self.contactNodesInter
 
-        self.dnaData.save_to_file(fileNameRoot)
+        self.dnaData.save_to_file(file_name_root)
 
-    def saveReducedTraj(self, fileNameRoot="dnaData", stride=1) -> None:
+    def saveReducedTraj(self, file_name_root: str = "dnaData", stride: int = 1) -> None:
         """Save a reduced trajectory to file.
 
         This function automates the creation of a reduced DCD trajectory file
@@ -398,12 +398,12 @@ class DNAproc:
         creates a matching PDB file to maintain atom and residue names.
 
         Args:
-            fileNameRoot (str) : Root of the trajectory and structure files to be writen.
+            file_name_root (str) : Root of the trajectory and structure files to be writen.
             stride (int) : Stride used to write the trajectory file.
 
         """
 
-        dcdVizFile = fileNameRoot + "_reducedTraj.dcd"
+        dcdVizFile = file_name_root + "_reducedTraj.dcd"
 
         totalFrames: int = int(len(self.workU.trajectory[::stride]))
 
@@ -412,7 +412,7 @@ class DNAproc:
                                   total=totalFrames, ascii=self.asciiMode):
                 W.write(self.workU.atoms)
 
-        pdbVizFile = fileNameRoot + "_reducedTraj.pdb"
+        pdbVizFile = file_name_root + "_reducedTraj.pdb"
 
         with mda.Writer(pdbVizFile,
                         multiframe=False,
@@ -2198,18 +2198,18 @@ class DNAproc:
 
             self.nodesComm[win]["commOrderSize"] = copy.deepcopy(communitiesOrdSize)
 
-            def getEgnCentr(comm: int):
+            def getEgnCentr(comm_id: int) -> Any:
                 """
                     Auxiliary function that returns Eigenvector Centralities for
                     nodes of a given community.
 
                 Args:
-                    comm: Community ID.
+                    comm_id: Community ID.
 
                 Returns:
                     Centralities of nodes in the community.
                 """
-                nodes = self.nodesComm[win]["commNodes"][comm][0]
+                nodes = self.nodesComm[win]["commNodes"][comm_id][0]
                 return self.nxGraphs[win].nodes[nodes]['eigenvector']
 
             if eigenvAvail:
@@ -2228,7 +2228,7 @@ class DNAproc:
                           selBstr: str,
                           betweenDist: float = 15.0,
                           samples: int = 10,
-                          verbose: int = 0):
+                          verbose: int = 0) -> int:
         """Detects interface between molecules.
 
         Based on user-defined atom selections, the function detects residues

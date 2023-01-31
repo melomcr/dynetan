@@ -27,12 +27,12 @@ def test_data_storage(tmp_path, dnap_omp):
                            verbose=0)
 
     # Save Data
-    dnap.saveData(fileNameRoot=path_root)
+    dnap.saveData(file_name_root=path_root)
 
     import warnings
     # suppress some MDAnalysis warnings about writing DCD files
     warnings.filterwarnings('ignore')
-    dnap.saveReducedTraj(fileNameRoot=path_root, stride=1)
+    dnap.saveReducedTraj(file_name_root=path_root, stride=1)
 
     # Check if each expected file exists
     assert os.path.exists(path_root + "_btws.npy")
