@@ -242,7 +242,7 @@ def getCartDist(src: int,
 
 
 def formatNodeGroups(atmGrp: mda.AtomGroup,
-                     nodeAtmStrL: list = ["CA"],
+                     nodeAtmStrL: list,
                      grpAtmStrL: Union[list, None] = None) -> None:
     """Format code to facilitate the definition of node groups.
 
@@ -256,9 +256,11 @@ def formatNodeGroups(atmGrp: mda.AtomGroup,
     `grpAtmStrL` to define each node group.
 
     Args:
-        atmGrp (MDanalysis atom group object): Atom group with one residue.
+        atmGrp (MDAnalysis atom group object): Atom group with one residue.
         nodeAtmStrL (list): Strings defining atoms that will represent nodes.
-        grpAtmStrL (list): Lists containing atoms that belong to each node group.
+        grpAtmStrL (list|None): Lists containing atoms that belong to each node group.
+            If None, all atoms in the residue will be added to the same node group.
+            This parameter can only be None when a single node is provided.
 
     Returns:
         ---
