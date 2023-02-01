@@ -1768,9 +1768,6 @@ class DNAproc:
         assert isinstance(verbose, int)
         assert isinstance(backend, str)
 
-        if not backend:
-            backend = backend_types[0]
-
         assert backend in backend_types, f"Only allowed backend options " \
                                          f"are {backend_types}"
 
@@ -1782,8 +1779,8 @@ class DNAproc:
 
         selectionAtms = self.workU.select_atoms("all")
 
-        nodeDistsTmp: npt.NDArray = np.zeros([int(self.numNodes * (self.numNodes - 1) / 2)],
-                                             dtype=np.float64)
+        array_size = int(self.numNodes * (self.numNodes - 1) / 2)
+        nodeDistsTmp: npt.NDArray = np.zeros([array_size], dtype=np.float64)
 
         self.nodeDists = np.zeros([4, int(self.numNodes * (self.numNodes - 1) / 2)],
                                   dtype=np.float64)
