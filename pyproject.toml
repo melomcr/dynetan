@@ -100,7 +100,7 @@ disallow_incomplete_defs = true
 disallow_untyped_defs = true
 
 # This one isn't too hard to get passing, but return on investment is lower
-#no_implicit_reexport = true
+no_implicit_reexport = true
 
 # This one can be tricky to get passing if you use a lot of untyped libraries
 #warn_return_any = true

@@ -12,6 +12,7 @@ from . import network as nw
 from . import datastorage as ds
 
 import numpy as np
+import numpy.typing as npt
 
 # import cython
 
@@ -889,7 +890,8 @@ class DNAproc:
             # Combine lists into one list
             nodeGroupIndicesL.append(list(chain.from_iterable(tmp)))
 
-        nodeGroupIndices = np.asarray(nodeGroupIndicesL, dtype=object)
+        nodeGroupIndices: npt.NDArray = np.asarray(nodeGroupIndicesL,
+                                                   dtype=object)
 
         self.nodeGroupIndicesNP = np.asarray(
             list(chain.from_iterable(nodeGroupIndices)),
@@ -983,7 +985,8 @@ class DNAproc:
         # Array to receive all-to-all distances, at every step
         if self.distanceMode == ct.MODE_ALL:
             # This array will store all distances between all atoms.
-            tmpDists = np.zeros(int(nAtoms * (nAtoms - 1) / 2), dtype=float)
+            tmpDists: npt.NDArray = np.zeros(int(nAtoms * (nAtoms - 1) / 2),
+                                             dtype=float)
             if verbose > 1:
                 print("Filling array with zeros.")
 
@@ -1003,7 +1006,7 @@ class DNAproc:
             print(alcStr.format(tmpDists.nbytes // 1024 // 1024), flush=True)
 
         # Array to get minimum distances per node
-        tmpDistsAtms = np.full(nAtoms, self.cutoffDist * 2, dtype=float)
+        tmpDistsAtms: npt.NDArray = np.full(nAtoms, self.cutoffDist * 2, dtype=float)
 
         if verbose > 1:
             alcStr = "Allocated temporary NODE distance array of size {} KB."
@@ -1190,14 +1193,14 @@ class DNAproc:
         noContactNodesSel = self.nodesAtmSel.residues[resNoContacts]
         # Finally we update the selection for all nodes that belong to residues with
         # at least one node in contact.
-        mask = np.ones(len(self.nodesAtmSel.residues), dtype=bool)
+        mask: npt.NDArray = np.ones(len(self.nodesAtmSel.residues), dtype=bool)
         mask[resNoContacts] = False
         contactNodesSel = self.nodesAtmSel.residues[mask].atoms.intersection(
             self.nodesAtmSel)
 
         # We also have to update the contact matrix that represent nodes which will
         # be kept in the system. For this we will build another mask.
-        nodeMask = np.ones(len(self.nodesAtmSel.atoms.ids), dtype=bool)
+        nodeMask: npt.NDArray = np.ones(len(self.nodesAtmSel.atoms.ids), dtype=bool)
         for indx, atm in enumerate(self.nodesAtmSel.atoms):
             # We check if the atom belongs to the selection of atoms that will be
             # kept in the system.
@@ -1538,7 +1541,7 @@ class DNAproc:
 
         # Pre-calculate psi values for all frames.
         # (allocation and initialization step)
-        psi = np.zeros([winLen + 1], dtype=np.float64)
+        psi: npt.NDArray = np.zeros([winLen + 1], dtype=np.float64)
         psi[1] = -0.57721566490153
 
         # Pre-calculate psi values for all frames.
@@ -1779,8 +1782,8 @@ class DNAproc:
 
         selectionAtms = self.workU.select_atoms("all")
 
-        nodeDistsTmp = np.zeros([int(self.numNodes * (self.numNodes - 1) / 2)],
-                                dtype=np.float64)
+        nodeDistsTmp: npt.NDArray = np.zeros([int(self.numNodes * (self.numNodes - 1) / 2)],
+                                             dtype=np.float64)
 
         self.nodeDists = np.zeros([4, int(self.numNodes * (self.numNodes - 1) / 2)],
                                   dtype=np.float64)
@@ -2164,8 +2167,8 @@ class DNAproc:
 
             communities = community.best_partition(self.nxGraphs[win])
 
-            communitiesLabels = np.unique(np.asarray(list(communities.values()),
-                                                     dtype=int))
+            comm_arr: npt.NDArray = np.asarray(list(communities.values()), dtype=int)
+            communitiesLabels: npt.NDArray = np.unique(comm_arr)
 
             self.nodesComm[win]["commLabels"] = copy.deepcopy(communitiesLabels)
 
@@ -2330,7 +2333,7 @@ class DNAproc:
         # These are all pairs of nodes that make direct connections.
         # These pairs WILL INCLUDE pairs where both nodes are on the same
         # side of the interface.
-        contactNodePairs = np.asarray(pairs_list, dtype=np.int64)
+        contactNodePairs: npt.NDArray = np.asarray(pairs_list, dtype=np.int64)
 
         # These are pairs where the nodes are NOT on the same selection,
         # that is, pairs that connect the two atom selections.
