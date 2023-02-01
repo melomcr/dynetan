@@ -16,7 +16,9 @@ import networkx as nx
 from typing import List
 
 
-def calcOptPathPar(nx_graphs: List[nx.Graph], in_queue: Queue, out_queue: Queue):
+def calcOptPathPar(nx_graphs: List[nx.Graph],
+                   in_queue: Queue,
+                   out_queue: Queue) -> None:
     """Wrapper to calculate Floyd Warshall optimal path in parallel.
 
     For the FW optimal path determination, we use the node "distance" as weights,
@@ -64,7 +66,9 @@ def calcOptPathPar(nx_graphs: List[nx.Graph], in_queue: Queue, out_queue: Queue)
             out_queue.put((win, dists, copy.deepcopy(pathsPred)))
 
 
-def calcBetweenPar(nx_graphs: List[nx.Graph], in_queue: Queue, out_queue: Queue):
+def calcBetweenPar(nx_graphs: List[nx.Graph],
+                   in_queue: Queue,
+                   out_queue: Queue) -> None:
     """Wrapper to calculate betweenness in parallel.
 
     The betweenness calculations used here only take into account the number of

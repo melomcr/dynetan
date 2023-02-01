@@ -80,6 +80,7 @@ warn_unused_configs = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 no_implicit_optional = true
+warn_unreachable = true
 
 # Getting these passing should be easy
 strict_equality = true
@@ -90,32 +91,23 @@ check_untyped_defs = false
 
 # These shouldn't be too much additional work, but may be tricky to
 # get passing if you use a lot of untyped libraries
-#disallow_subclassing_any = true
+disallow_subclassing_any = true
 #disallow_untyped_decorators = true
 #disallow_any_generics = true
 
 # These next few are various gradations of forcing use of type annotations
-#disallow_untyped_calls = true
-#disallow_incomplete_defs = true
-#disallow_untyped_defs = true
+disallow_untyped_calls = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
 
 # This one isn't too hard to get passing, but return on investment is lower
-#no_implicit_reexport = true
+no_implicit_reexport = true
 
 # This one can be tricky to get passing if you use a lot of untyped libraries
 #warn_return_any = true
 
-#check_untyped_defs = true
-#disallow_any_generics = true
-#ignore_missing_imports = true
-#no_implicit_optional = true
-#show_error_codes = true
-#strict_equality = true
-#warn_redundant_casts = true
-#warn_return_any = true
-#warn_unreachable = true
-#warn_unused_configs = true
-#no_implicit_reexport = true
+show_error_codes = true
+
 
 [[tool.mypy.overrides]]
 module = []

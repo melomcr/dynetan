@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
+import MDAnalysis
 # @author: melomcr
 
 import numpy as np
 import numpy.typing as npt
 import cython
+from multiprocessing import Queue
 
 # For generalized correlations
 from numba import jit
@@ -18,12 +19,12 @@ from numba import jit
 
 @cython.cfunc
 @cython.returns(cython.void)
-@cython.locals(numNodes=cython.int,
-               numDims=cython.int,
+@cython.locals(num_nodes=cython.int,
+               num_dims=cython.int,
                traj="np.ndarray[np.float_t, ndim=3]")
 @cython.boundscheck(False)  # turn off bounds-checking for entire function
 @cython.wraparound(False)  # turn off negative index wrapping for entire function
-def standVarsC(traj, numNodes, numDims):
+def stand_vars_c(traj: npt.NDArray[np.float64], num_nodes: int, num_dims: int) -> None:
     """Standardize variables in trajectory data.
 
     This function prepares the trajectory for the estimation of mutual
@@ -33,20 +34,20 @@ def standVarsC(traj, numNodes, numDims):
     dynamics data).
 
     .. note:: Please refer to :py:func:`prepMIc` for details about the data
-        conversion process. Please refer to :py:func:`calcMIRnumba2var` for details
+        conversion process. Please refer to :py:func:`calc_mir_numba_2var` for details
         about the calculation of mutual information coefficients.
 
     Args:
         traj (obj): NumPy array with trajectory information.
-        numNodes (int): Number of nodes in the network.
-        numDims (int): Number of dimensions in trajectory data
+        num_nodes (int): Number of nodes in the network.
+        num_dims (int): Number of dimensions in trajectory data
             (usually 3 dimensions, for X,Y,Z coordinates).
 
     """
 
     # Standardize variables
-    for atm in range(numNodes):
-        for dim in range(numDims):
+    for atm in range(num_nodes):
+        for dim in range(num_dims):
             # Normalize each dimension.
             traj[atm, dim, :] = (traj[atm, dim, :] -
                                  traj[atm, dim, :].mean()) / traj[atm, dim, :].std()
@@ -64,7 +65,12 @@ def standVarsC(traj, numNodes, numDims):
                numDims=cython.int)
 @cython.boundscheck(False)  # turn off bounds-checking for entire function
 @cython.wraparound(False)  # turn off negative index wrapping for entire function
-def prepMIc(universe, traj, beg, end, numNodes, numDims):
+def prep_mi_c(universe: MDAnalysis.Universe,
+              traj: npt.NDArray[np.float64],
+              beg: int,
+              end: int,
+              num_nodes: int,
+              num_dims: int) -> None:
     """Standardize variables in trajectory data.
 
     This function stores the trajectory data in a new format to accelerate the
@@ -78,7 +84,7 @@ def prepMIc(universe, traj, beg, end, numNodes, numDims):
     position data, also necessary for mutual information estimation.
 
     .. note:: Please refer to :py:func:`standVarsC` for details about the data
-        standardization process. Please refer to :py:func:`calcMIRnumba2var` for
+        standardization process. Please refer to :py:func:`calc_mir_numba_2var` for
         details about the calculation of mutual information coefficients.
 
     Args:
@@ -87,25 +93,29 @@ def prepMIc(universe, traj, beg, end, numNodes, numDims):
         traj (obj): NumPy array where trajectory information will be stored.
         beg (int): Initial trajectory frame to be used for analysis.
         end (int): Final trajectory frame to be used for analysis.
-        numNodes (int): Number of nodes in the network.
-        numDims (int): Number of dimensions in trajectory data
+        num_nodes (int): Number of nodes in the network.
+        num_dims (int): Number of dimensions in trajectory data
             (usually 3 dimensions, for X,Y,Z coordinates).
 
     """
 
     # Copy trajectory
-    for frameIndx, ts in enumerate(universe.trajectory[beg:end]):
+    for frame_index, ts in enumerate(universe.trajectory[beg:end]):
 
-        for atmIndx in range(numNodes):
-            for dim in range(numDims):
-                traj[atmIndx, dim, frameIndx] = ts.positions[atmIndx, dim]
+        for atm_index in range(num_nodes):
+            for dim in range(num_dims):
+                traj[atm_index, dim, frame_index] = ts.positions[atm_index, dim]
 
-    standVarsC(traj, numNodes, numDims)
+    stand_vars_c(traj, num_nodes, num_dims)
 
 
 @jit('f8(f8[:,:,:], i4, i8, i4, f8[:], f8[:])', nopython=True)
-def calcMIRnumba2var(traj, numFrames, numDims,
-                     kNeighb, psi, phi):  # pragma: no cover
+def calc_mir_numba_2var(traj: npt.NDArray[np.float64],
+                        num_frames: int,
+                        num_dims: int,
+                        k_neighb: npt.NDArray[np.float64],
+                        psi: npt.NDArray[np.float64],
+                        phi: npt.NDArray[np.float64]) -> float:  # pragma: no cover
     """Calculate mutual information coefficients.
 
     This function estimates the mutual information coefficient based on
@@ -123,29 +133,29 @@ def calcMIRnumba2var(traj, numFrames, numDims,
 
     Args:
         traj (obj): NumPy array with trajectory information.
-        numFrames (int): Number of trajectory frames in the current window.
-        numDims (int): Number of dimensions in trajectory data
+        num_frames (int): Number of trajectory frames in the current window.
+        num_dims (int): Number of dimensions in trajectory data
             (usually 3 dimensions, for X,Y,Z coordinates).
-        kNeighb (int): Parameter used for mutual information estimation.
-        psi (float): Pre-calculated parameter used for mutual information estimation.
-        phi (float): Pre-calculated parameter used for mutual information estimation.
+        k_neighb (int): Parameter used for mutual information estimation.
+        psi (np.array): Pre-calculated parameter used for mutual information estimation.
+        phi (np.array): Pre-calculated parameter used for mutual information estimation.
 
     """
 
-    dxy = 0
+    dxy = 0.0
 
-    diffX: npt.NDArray[np.float64] = np.zeros(numFrames, dtype=np.float64)
-    diffY: npt.NDArray[np.float64] = np.zeros(numFrames, dtype=np.float64)
-    tmpDiff: npt.NDArray[np.float64] = np.zeros(numFrames, dtype=np.float64)
-    sortIndx: npt.NDArray[np.int64] = np.zeros(numFrames, dtype=np.int64)
+    diffX: npt.NDArray[np.float64] = np.zeros(num_frames, dtype=np.float64)
+    diffY: npt.NDArray[np.float64] = np.zeros(num_frames, dtype=np.float64)
+    tmpDiff: npt.NDArray[np.float64] = np.zeros(num_frames, dtype=np.float64)
+    sortIndx: npt.NDArray[np.int64] = np.zeros(num_frames, dtype=np.int64)
 
-    for step in range(numFrames):
+    for step in range(num_frames):
         diffX.fill(0)
         diffY.fill(0)
         tmpDiff.fill(0)
         sortIndx.fill(0)
 
-        for d in range(numDims):
+        for d in range(num_dims):
 
             tmpDiff = np.abs(traj[0, d, :] - traj[0, d, step])
 
@@ -165,9 +175,9 @@ def calcMIRnumba2var(traj, numFrames, numDims,
         #  among k nearest neighbors.
         # We add one to the count to include the k-th neighbour, as the first index
         #  in the list it the frame itself.
-        for kindx in range(1, kNeighb+1):
+        for kindx in range(1, k_neighb + 1):
 
-            for d in range(numDims):
+            for d in range(num_dims):
                 # For variable "i"
                 dist = np.abs(traj[0, d, step] - traj[0, d, sortIndx[kindx]])
 
@@ -187,13 +197,20 @@ def calcMIRnumba2var(traj, numFrames, numDims,
 
         dxy += psi[nx] + psi[ny]
 
-    dxy /= numFrames
+    dxy /= num_frames
 
     # Mutual Information R
-    return psi[numFrames] + phi[kNeighb] - dxy
+    return psi[num_frames] + phi[k_neighb] - dxy
 
 
-def calcCorProc(traj, winLen, psi, phi, numDims, kNeighb, inQueue, outQueue):
+def calc_cor_proc(traj: npt.NDArray[np.float64],
+                  win_len: int,
+                  psi: npt.NDArray[np.float64],
+                  phi: npt.NDArray[np.float64],
+                  num_dims: int,
+                  k_neighb: npt.NDArray[np.float64],
+                  in_queue: Queue,
+                  out_queue: Queue) -> None:
     """Process for parallel calculation of generalized correlation coefficients.
 
     This function serves as a wrapper and manager for the calculation of
@@ -205,19 +222,19 @@ def calcCorProc(traj, winLen, psi, phi, numDims, kNeighb, inQueue, outQueue):
     coefficient. The generalized correlation coefficient is calculated using a
     mutual information coefficient which is estimated using an optimized function.
 
-    .. note:: Please refer to :py:func:`calcMIRnumba2var` for details about the
+    .. note:: Please refer to :py:func:`calc_mir_numba_2var` for details about the
         calculation of mutual information coefficients.
 
     Args:
         traj (obj): NumPy array with trajectory information.
-        winLen (int): Number of trajectory frames in the current window.
+        win_len (int): Number of trajectory frames in the current window.
         psi (float): Pre-calculated parameter used for mutual information estimation.
         phi (float): Pre-calculated parameter used for mutual information estimation.
-        numDims (int): Number of dimensions in trajectory data
+        num_dims (int): Number of dimensions in trajectory data
             (usually 3 dimensions, for X,Y,Z coordinates).
-        kNeighb (int): Parameter used for mutual information estimation.
-        inQueue (obj) : Multiprocessing queue object for acquiring jobs.
-        outQueue (obj) : Multiprocessing queue object for placing results.
+        k_neighb (int): Parameter used for mutual information estimation.
+        in_queue (obj) : Multiprocessing queue object for acquiring jobs.
+        out_queue (obj) : Multiprocessing queue object for placing results.
 
     """
 
@@ -229,7 +246,7 @@ def calcCorProc(traj, winLen, psi, phi, numDims, kNeighb, inQueue, outQueue):
     while True:
 
         try:
-            atmList = inQueue.get(block=True, timeout=0.01)
+            atmList = in_queue.get(block=True, timeout=0.01)
         except queue.Empty:  # pragma: no cover
             continue
             # If we need to wait for longer for a new item,
@@ -240,13 +257,17 @@ def calcCorProc(traj, winLen, psi, phi, numDims, kNeighb, inQueue, outQueue):
                 break
 
             # Calls the Numba-compiled function.
-            corr = calcMIRnumba2var(traj[atmList, :, :], winLen, numDims, kNeighb,
-                                    psi, phi)
+            corr = calc_mir_numba_2var(traj[atmList, :, :],
+                                       win_len,
+                                       num_dims,
+                                       k_neighb,
+                                       psi,
+                                       phi)
 
             # Assures that the Mutual Information estimate is not lower than zero.
             corr = max(0, corr)
 
-            # Determine generalized correlation coeff from the Mutual Information
+            # Determine generalized correlation coefficient from the Mutual Information
             corr = np.sqrt(1-np.exp(-corr*(2.0/3)))
 
-            outQueue.put((atmList, corr))
+            out_queue.put((atmList, corr))

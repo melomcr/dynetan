@@ -150,11 +150,11 @@ class TestToolkitClass:
         ])
     def test_nglview(self, dnap_omp, node_group, node_sel):
         import nglview as nv
-        from dynetan.toolkit import showNodeGrps
+        from dynetan.toolkit import show_node_grps
 
         sel_str = "resid 11 and resname VAL and (not (name H* or name [123]H*))"
         atm_group = dnap_omp.workU.select_atoms(sel_str)
 
         w = nv.show_mdanalysis(atm_group)
 
-        showNodeGrps(w, atm_group, node_group, node_sel)
+        show_node_grps(w, atm_group, node_group, node_sel)

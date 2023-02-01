@@ -12,6 +12,7 @@ from . import network as nw
 from . import datastorage as ds
 
 import numpy as np
+import numpy.typing as npt
 
 # import cython
 
@@ -59,9 +60,23 @@ backend_types = ["serial", "openmp"]
 ##################################################
 
 
-def is_proteic(resname):
+def is_proteic(resname: str) -> bool:
     mda_known_prot_res = mda.core.selection.ProteinSelection.prot_res
     return resname in mda_known_prot_res
+
+
+def in_interface(nodes_atm_sel: mda.AtomGroup,
+                 node_i: int,
+                 node_j: int,
+                 seg_ids: list) -> bool:
+    segID1 = nodes_atm_sel.atoms[node_i].segid
+    segID2 = nodes_atm_sel.atoms[node_j].segid
+
+    if (segID1 != segID2) and (
+            (segID1 in seg_ids) or (segID2 in seg_ids)):
+        return True
+    else:
+        return False
 
 
 class DNAproc:
@@ -82,14 +97,14 @@ class DNAproc:
 
     """
 
-    def __init__(self, notebookMode=True):
+    def __init__(self, notebookMode=True):  # type: ignore  # Just during refactoring
         """Constructor
 
         Sets initial values for class variables.
 
         """
 
-        self.dnaData = ds.DNAdata()
+        self.dnaData: ds.DNAdata = ds.DNAdata()
 
         # Basic DNA parameters
         self.contactPersistence = 0.75
@@ -334,7 +349,7 @@ class DNAproc:
         """
         return self.workU
 
-    def saveData(self, fileNameRoot="dnaData") -> None:
+    def saveData(self, file_name_root: str = "dnaData") -> None:
         """Save all network analysis data to file.
 
         This function automates the creation of a
@@ -343,7 +358,7 @@ class DNAproc:
         :py:func:`~dynetan.datastorage.DNAdata.saveToFile` function.
 
         Args:
-            fileNameRoot (str) : Root of the multiple data files to be writen.
+            file_name_root (str) : Root of the multiple data files to be writen.
 
         """
 
@@ -374,9 +389,9 @@ class DNAproc:
         if self.contactNodesInter is not None:
             self.dnaData.contactNodesInter = self.contactNodesInter
 
-        self.dnaData.saveToFile(fileNameRoot)
+        self.dnaData.save_to_file(file_name_root)
 
-    def saveReducedTraj(self, fileNameRoot="dnaData", stride=1) -> None:
+    def saveReducedTraj(self, file_name_root: str = "dnaData", stride: int = 1) -> None:
         """Save a reduced trajectory to file.
 
         This function automates the creation of a reduced DCD trajectory file
@@ -384,12 +399,13 @@ class DNAproc:
         creates a matching PDB file to maintain atom and residue names.
 
         Args:
-            fileNameRoot (str) : Root of the trajectory and structure files to be writen.
+            file_name_root (str) : Root of the trajectory and structure
+                files to be writen.
             stride (int) : Stride used to write the trajectory file.
 
         """
 
-        dcdVizFile = fileNameRoot + "_reducedTraj.dcd"
+        dcdVizFile = file_name_root + "_reducedTraj.dcd"
 
         totalFrames: int = int(len(self.workU.trajectory[::stride]))
 
@@ -398,7 +414,7 @@ class DNAproc:
                                   total=totalFrames, ascii=self.asciiMode):
                 W.write(self.workU.atoms)
 
-        pdbVizFile = fileNameRoot + "_reducedTraj.pdb"
+        pdbVizFile = file_name_root + "_reducedTraj.pdb"
 
         with mda.Writer(pdbVizFile,
                         multiframe=False,
@@ -874,7 +890,8 @@ class DNAproc:
             # Combine lists into one list
             nodeGroupIndicesL.append(list(chain.from_iterable(tmp)))
 
-        nodeGroupIndices = np.asarray(nodeGroupIndicesL, dtype=object)
+        nodeGroupIndices: npt.NDArray = np.asarray(nodeGroupIndicesL,
+                                                   dtype=object)
 
         self.nodeGroupIndicesNP = np.asarray(
             list(chain.from_iterable(nodeGroupIndices)),
@@ -968,7 +985,8 @@ class DNAproc:
         # Array to receive all-to-all distances, at every step
         if self.distanceMode == ct.MODE_ALL:
             # This array will store all distances between all atoms.
-            tmpDists = np.zeros(int(nAtoms * (nAtoms - 1) / 2), dtype=float)
+            tmpDists: npt.NDArray = np.zeros(int(nAtoms * (nAtoms - 1) / 2),
+                                             dtype=float)
             if verbose > 1:
                 print("Filling array with zeros.")
 
@@ -988,7 +1006,7 @@ class DNAproc:
             print(alcStr.format(tmpDists.nbytes // 1024 // 1024), flush=True)
 
         # Array to get minimum distances per node
-        tmpDistsAtms = np.full(nAtoms, self.cutoffDist * 2, dtype=float)
+        tmpDistsAtms: npt.NDArray = np.full(nAtoms, self.cutoffDist * 2, dtype=float)
 
         if verbose > 1:
             alcStr = "Allocated temporary NODE distance array of size {} KB."
@@ -1007,17 +1025,17 @@ class DNAproc:
                       flush=True)
 
             # Calculates distances to determine contact matrix
-            ct.getContactsC(selectionAtms,
-                            self.numNodes,
-                            nAtoms,
-                            self.cutoffDist,
-                            tmpDists,
-                            tmpDistsAtms,
-                            contact_mat,
-                            self.atomToNode,
-                            self.nodeGroupIndicesNP,
-                            self.nodeGroupIndicesNPAux,
-                            distMode=self.distanceMode)
+            ct.get_contacts_c(selectionAtms,
+                              self.numNodes,
+                              nAtoms,
+                              self.cutoffDist,
+                              tmpDists,
+                              tmpDistsAtms,
+                              contact_mat,
+                              self.atomToNode,
+                              self.nodeGroupIndicesNP,
+                              self.nodeGroupIndicesNPAux,
+                              dist_mode=self.distanceMode)
 
     def findContacts(self, stride: int = 1, verbose: int = 1) -> None:
         """Finds all nodes in contact.
@@ -1175,14 +1193,14 @@ class DNAproc:
         noContactNodesSel = self.nodesAtmSel.residues[resNoContacts]
         # Finally we update the selection for all nodes that belong to residues with
         # at least one node in contact.
-        mask = np.ones(len(self.nodesAtmSel.residues), dtype=bool)
+        mask: npt.NDArray = np.ones(len(self.nodesAtmSel.residues), dtype=bool)
         mask[resNoContacts] = False
         contactNodesSel = self.nodesAtmSel.residues[mask].atoms.intersection(
             self.nodesAtmSel)
 
         # We also have to update the contact matrix that represent nodes which will
         # be kept in the system. For this we will build another mask.
-        nodeMask = np.ones(len(self.nodesAtmSel.atoms.ids), dtype=bool)
+        nodeMask: npt.NDArray = np.ones(len(self.nodesAtmSel.atoms.ids), dtype=bool)
         for indx, atm in enumerate(self.nodesAtmSel.atoms):
             # We check if the atom belongs to the selection of atoms that will be
             # kept in the system.
@@ -1523,7 +1541,7 @@ class DNAproc:
 
         # Pre-calculate psi values for all frames.
         # (allocation and initialization step)
-        psi = np.zeros([winLen + 1], dtype=np.float64)
+        psi: npt.NDArray = np.zeros([winLen + 1], dtype=np.float64)
         psi[1] = -0.57721566490153
 
         # Pre-calculate psi values for all frames.
@@ -1585,7 +1603,7 @@ class DNAproc:
                 traj.fill(0)
 
                 # Prepares data for fast calculation of the current window.
-                gc.prepMIc(self.workU, traj, beg, end, self.numNodes, numDims)
+                gc.prep_mi_c(self.workU, traj, beg, end, self.numNodes, numDims)
 
                 # Iterates over all pairs of nodes that are in contact.
                 for atmList in self.progBar(pair_array,
@@ -1594,11 +1612,12 @@ class DNAproc:
                                             ascii=self.asciiMode):
 
                     # Calls the Numba-compiled function.
-                    corr = gc.calcMIRnumba2var(traj[atmList, :, :],
-                                               winLen,
-                                               numDims,
-                                               self.kNeighb,
-                                               psi, phi)
+                    corr = gc.calc_mir_numba_2var(traj[atmList, :, :],
+                                                  winLen,
+                                                  numDims,
+                                                  self.kNeighb,
+                                                  psi,
+                                                  phi)
 
                     # Assures that the Mutual Information estimate is not lower than zero.
                     corr = max(0, corr)
@@ -1666,7 +1685,7 @@ class DNAproc:
                 traj.fill(0)
 
                 # Prepares trajectory data for fast calculation of the current window.
-                gc.prepMIc(self.workU, traj, beg, end, self.numNodes, numDims)
+                gc.prep_mi_c(self.workU, traj, beg, end, self.numNodes, numDims)
 
                 # Create queues that feed processes with node pairs, and gather results.
                 data_queue: queue.Queue = mp.Queue()
@@ -1685,7 +1704,7 @@ class DNAproc:
                     data_queue.put([])
 
                     # Initialize process
-                    proc = mp.Process(target=gc.calcCorProc,
+                    proc = mp.Process(target=gc.calc_cor_proc,
                                       args=(traj,
                                             winLen,
                                             psi,
@@ -1749,9 +1768,6 @@ class DNAproc:
         assert isinstance(verbose, int)
         assert isinstance(backend, str)
 
-        if not backend:
-            backend = backend_types[0]
-
         assert backend in backend_types, f"Only allowed backend options " \
                                          f"are {backend_types}"
 
@@ -1763,8 +1779,8 @@ class DNAproc:
 
         selectionAtms = self.workU.select_atoms("all")
 
-        nodeDistsTmp = np.zeros([int(self.numNodes * (self.numNodes - 1) / 2)],
-                                dtype=np.float64)
+        array_size = int(self.numNodes * (self.numNodes - 1) / 2)
+        nodeDistsTmp: npt.NDArray = np.zeros([array_size], dtype=np.float64)
 
         self.nodeDists = np.zeros([4, int(self.numNodes * (self.numNodes - 1) / 2)],
                                   dtype=np.float64)
@@ -1782,12 +1798,17 @@ class DNAproc:
                               total=numFramesDists,
                               desc="MEAN: Timesteps",
                               ascii=self.asciiMode):
-            ct.calcDistances(selectionAtms, self.numNodes, selectionAtms.n_atoms,
-                             self.atomToNode, self.cutoffDist,
-                             self.nodeGroupIndicesNP, self.nodeGroupIndicesNPAux,
-                             nodeDistsTmp, backend,
-                             distMode=self.distanceMode,
-                             verbose=verbose)
+            ct.calc_distances(selectionAtms,
+                              self.numNodes,
+                              selectionAtms.n_atoms,
+                              self.atomToNode,
+                              self.cutoffDist,
+                              self.nodeGroupIndicesNP,
+                              self.nodeGroupIndicesNPAux,
+                              nodeDistsTmp,
+                              backend,
+                              dist_mode=self.distanceMode,
+                              verbose=verbose)
 
             # Mean
             self.nodeDists[0, :] += nodeDistsTmp
@@ -1803,14 +1824,17 @@ class DNAproc:
                               total=numFramesDists,
                               desc="SEM/MIN/MAX: Timesteps",
                               ascii=self.asciiMode):
-            ct.calcDistances(selectionAtms,
-                             self.numNodes,
-                             selectionAtms.n_atoms,
-                             self.atomToNode, self.cutoffDist,
-                             self.nodeGroupIndicesNP, self.nodeGroupIndicesNPAux,
-                             nodeDistsTmp, backend,
-                             distMode=self.distanceMode,
-                             verbose=verbose)
+            ct.calc_distances(selectionAtms,
+                              self.numNodes,
+                              selectionAtms.n_atoms,
+                              self.atomToNode,
+                              self.cutoffDist,
+                              self.nodeGroupIndicesNP,
+                              self.nodeGroupIndicesNPAux,
+                              nodeDistsTmp,
+                              backend,
+                              dist_mode=self.distanceMode,
+                              verbose=verbose)
 
             # Accumulates the squared difference
             self.nodeDists[1, :] += np.square(self.nodeDists[0, :] - nodeDistsTmp)
@@ -2090,7 +2114,7 @@ class DNAproc:
             for proc in procs:
                 proc.join()
 
-    def calcEigenCentral(self):
+    def calcEigenCentral(self) -> None:
         """Wrapper for calculation of node centrality.
 
         Calculates node centrality for all nodes in all simulation windows.
@@ -2105,7 +2129,7 @@ class DNAproc:
             cent = nxeigencentrality(self.nxGraphs[win], weight='weight')
             nx.set_node_attributes(self.nxGraphs[win], cent, 'eigenvector')
 
-    def calcCommunities(self):
+    def calcCommunities(self) -> None:
         """Calculate node communities using Louvain heuristics.
 
         The function produces sets of nodes that are strongly connected,
@@ -2140,8 +2164,8 @@ class DNAproc:
 
             communities = community.best_partition(self.nxGraphs[win])
 
-            communitiesLabels = np.unique(np.asarray(list(communities.values()),
-                                                     dtype=int))
+            comm_arr: npt.NDArray = np.asarray(list(communities.values()), dtype=int)
+            communitiesLabels: npt.NDArray = np.unique(comm_arr)
 
             self.nodesComm[win]["commLabels"] = copy.deepcopy(communitiesLabels)
 
@@ -2176,18 +2200,18 @@ class DNAproc:
 
             self.nodesComm[win]["commOrderSize"] = copy.deepcopy(communitiesOrdSize)
 
-            def getEgnCentr(comm: int):
+            def getEgnCentr(comm_id: int) -> Any:
                 """
                     Auxiliary function that returns Eigenvector Centralities for
                     nodes of a given community.
 
                 Args:
-                    comm: Community ID.
+                    comm_id: Community ID.
 
                 Returns:
                     Centralities of nodes in the community.
                 """
-                nodes = self.nodesComm[win]["commNodes"][comm][0]
+                nodes = self.nodesComm[win]["commNodes"][comm_id][0]
                 return self.nxGraphs[win].nodes[nodes]['eigenvector']
 
             if eigenvAvail:
@@ -2206,7 +2230,7 @@ class DNAproc:
                           selBstr: str,
                           betweenDist: float = 15.0,
                           samples: int = 10,
-                          verbose: int = 0):
+                          verbose: int = 0) -> int:
         """Detects interface between molecules.
 
         Based on user-defined atom selections, the function detects residues
@@ -2306,22 +2330,12 @@ class DNAproc:
         # These are all pairs of nodes that make direct connections.
         # These pairs WILL INCLUDE pairs where both nodes are on the same
         # side of the interface.
-        contactNodePairs = np.asarray(pairs_list, dtype=np.int64)
-
-        def inInterface(nodesAtmSel, i, j):
-            segID1 = nodesAtmSel.atoms[i].segid
-            segID2 = nodesAtmSel.atoms[j].segid
-
-            if (segID1 != segID2) and (
-                    (segID1 in self.segIDs) or (segID2 in self.segIDs)):
-                return True
-            else:
-                return False
+        contactNodePairs: npt.NDArray = np.asarray(pairs_list, dtype=np.int64)
 
         # These are pairs where the nodes are NOT on the same selection,
         # that is, pairs that connect the two atom selections.
         self.interNodePairs = [(i, j) for i, j in contactNodePairs
-                               if inInterface(self.nodesAtmSel, i, j)]
+                               if in_interface(self.nodesAtmSel, i, j, self.segIDs)]
         self.interNodePairs = np.asarray(self.interNodePairs, dtype=np.int64)
 
         if verbose > 0:

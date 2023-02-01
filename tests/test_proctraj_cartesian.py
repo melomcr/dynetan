@@ -56,9 +56,9 @@ def load_sys_solv_mode(dnap_base, solv, mode):
                      dist_list + solv_dist_list),
         pytest.param(False, "openmp", "all", (4, 23436),
                      dist_list),
-        pytest.param(True,  "", "capped", (4, 117855),
+        pytest.param(True,  "serial", "capped", (4, 117855),
                      dist_list_capped + solv_dist_list),
-        pytest.param(False, "", "capped", (4, 23436),
+        pytest.param(False, "serial", "capped", (4, 23436),
                      dist_list_capped)])
 def test_calc_cartesian(dnap_omp,
                         solv, backend, mode,

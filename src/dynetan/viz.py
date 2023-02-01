@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import MDAnalysis
 
 # @author: melomcr
 
 from . import toolkit as tk
+from . import datastorage as ds
 import numpy as np
+import pandas as pd
+from typing import Any
 
 
-def getCommunityColors():
+def getCommunityColors() -> pd.DataFrame:
     """Gets standardized colors for communities.
 
     This function loads pre-specified colors that match those available in
@@ -27,7 +31,6 @@ def getCommunityColors():
     #
     # Docs: https://docs.python.org/3.7/library/importlib.html
     from importlib.resources import open_text as pkg_open_text
-    import pandas as pd
 
     from . import vizmod
 
@@ -40,7 +43,8 @@ def getCommunityColors():
     return commColors
 
 
-def prepTclViz(baseName, numWinds, ligandSegid="NULL", trgDir="./"):
+def prepTclViz(base_name: str, num_winds: int, ligand_segid: str = "NULL",
+               trg_dir: str = "./") -> None:
     """Prepares system-specific TCL script vor visualization.
 
     This function prepares a TCL script that can be loaded by
@@ -48,12 +52,12 @@ def prepTclViz(baseName, numWinds, ligandSegid="NULL", trgDir="./"):
     renderings of the system.
 
     Args:
-        baseName (str): Base name for TCL script and data files necessary for
+        base_name (str): Base name for TCL script and data files necessary for
         visualization.
-        numWinds (int) : Number of windows created for analysis.
-        ligandSegid (str) : Segment ID of ligand residue. This will create
+        num_winds (int) : Number of windows created for analysis.
+        ligand_segid (str) : Segment ID of ligand residue. This will create
         special representations for small molecules.
-        trgDir (str) : Directory where TCL and data files will be saved.
+        trg_dir (str) : Directory where TCL and data files will be saved.
 
     """
 
@@ -79,23 +83,32 @@ def prepTclViz(baseName, numWinds, ligandSegid="NULL", trgDir="./"):
     tclTemplateFile = pkg_read_text(vizmod, tclFileName)
 
     # Replace base name of output files, number of windows, and ligand segid.
-    tclTemplateFile = tclTemplateFile.replace('BASENAMETMP', baseName)
-    tclTemplateFile = tclTemplateFile.replace('NUMSTEPTMP', str(numWinds))
-    tclTemplateFile = tclTemplateFile.replace('LIGANDTMP', ligandSegid)
+    tclTemplateFile = tclTemplateFile.replace('BASENAMETMP', base_name)
+    tclTemplateFile = tclTemplateFile.replace('NUMSTEPTMP', str(num_winds))
+    tclTemplateFile = tclTemplateFile.replace('LIGANDTMP', ligand_segid)
     # Replace the path to auxiliary TCLs
     tclTemplateFile = tclTemplateFile.replace('PATHTMP', str(pathToTcls))
 
     # Write new file to local directory
-    with open(os.path.join(trgDir, tclFileName), 'w') as file:
+    with open(os.path.join(trg_dir, tclFileName), 'w') as file:
         file.write(tclTemplateFile)
 
     msgStr = "The file \'{}\' has been saved in the following folder: {}"
-    print(msgStr.format(tclFileName, trgDir))
+    print(msgStr.format(tclFileName, trg_dir))
 
 
-def viewPath(nvView, path, dists, maxDirectDist, nodesAtmSel, win=0,
-             opacity=0.75, color="green", side="both", segments=5,
-             disableImpostor=True, useCylinder=True):
+def viewPath(nvView: Any,
+             path: list,
+             dists: Any,
+             maxDirectDist: float,
+             nodesAtmSel: MDAnalysis.AtomGroup,
+             win: int = 0,
+             opacity: float = 0.75,
+             color: str = "green",
+             side: str = "both",
+             segments: int = 5,
+             disableImpostor: bool = True,
+             useCylinder: bool = True) -> None:
     """Creates NGLView representation of a path.
 
     Renders a series of cylinders to represent a network path.
@@ -146,7 +159,11 @@ def viewPath(nvView, path, dists, maxDirectDist, nodesAtmSel, win=0,
                                   lazy=True)
 
 
-def showCommunity(nvView, commID, window, dnad, colorValDict):
+def showCommunity(nvView: Any,
+                  commID: int,
+                  window: int,
+                  dnad: ds.DNAdata,
+                  colorValDict: Any) -> None:
     """Creates NGLView representation of a specified community.
 
     Renders a series of cylinders to represent all edges in the network that
@@ -179,8 +196,13 @@ def showCommunity(nvView, commID, window, dnad, colorValDict):
                      color=colorValDict[commID])
 
 
-def showCommunityGlobal(nvView, nodeCommDF, commID, window, nodesAtmSel, dnad,
-                        colorValDict):
+def showCommunityGlobal(nvView: Any,
+                        nodeCommDF: pd.DataFrame,
+                        commID: int,
+                        window: int,
+                        nodesAtmSel: MDAnalysis.AtomGroup,
+                        dnad: ds.DNAdata,
+                        colorValDict: Any) -> None:
     """Creates NGLView representation of a specified community.
 
     This is a variation of :py:func:`showCommunity` created for reducing the
@@ -236,8 +258,13 @@ def showCommunityGlobal(nvView, nodeCommDF, commID, window, nodesAtmSel, dnad,
                  side="front", segments=1, disableImpostor=False)
 
 
-def showCommunityByTarget(nvView, nodeCommDF, trgtNodes, window, nodesAtmSel,
-                          dnad, colorValDict):
+def showCommunityByTarget(nvView: Any,
+                          nodeCommDF: pd.DataFrame,
+                          trgtNodes: list,
+                          window: int,
+                          nodesAtmSel: MDAnalysis.AtomGroup,
+                          dnad: ds.DNAdata,
+                          colorValDict: Any) -> None:
     """Creates NGLView representation of edges between selected nodes and
     their contacts.
 
@@ -289,8 +316,16 @@ def showCommunityByTarget(nvView, nodeCommDF, trgtNodes, window, nodesAtmSel,
                      disableImpostor=False, useCylinder=useCylinder)
 
 
-def showCommunityByID(nvView, cDF, clusID, system, refWindow, shapeCounter,
-                      nodesAtmSel, colorValDictRGB, system1, refWindow1):
+def showCommunityByID(nvView: Any,
+                      cDF: pd.DataFrame,
+                      clusID: int,
+                      system: str,
+                      refWindow: int,
+                      shapeCounter: Any,
+                      nodesAtmSel: MDAnalysis.AtomGroup,
+                      colorValDictRGB: Any,
+                      trg_system: str,
+                      trg_window: int) -> None:
     """Creates NGLView representation of nodes in a community.
 
     Renders a series of spheres to represent all nodes in the selected community.
@@ -314,8 +349,8 @@ def showCommunityByID(nvView, cDF, clusID, system, refWindow, shapeCounter,
         shapeCounter (obj) : Auxiliary list to manipulate NGLView representations.
         nodesAtmSel (obj) : MDAnalysis atom selection object.
         colorValDictRGB (obj) : Dictionary that standardizes community colors.
-        system1 (str) : System to be used for rendering.
-        refWindow1 (int) : Window used for rendering.
+        trg_system (str) : System to be used for rendering.
+        trg_window (int) : Window used for rendering.
 
     """
 
@@ -326,8 +361,8 @@ def showCommunityByID(nvView, cDF, clusID, system, refWindow, shapeCounter,
                        (cDF.Cluster == clusID)].Node.values
 
     for node in nodeList:
-        nodeLab = cDF.loc[(cDF.system == system1) &
-                          (cDF.Window == refWindow1) &
+        nodeLab = cDF.loc[(cDF.system == trg_system) &
+                          (cDF.Window == trg_window) &
                           (cDF.Node == node)].resid.values[0]
 
         nodePos = list(nodesAtmSel[node].position)
@@ -339,8 +374,14 @@ def showCommunityByID(nvView, cDF, clusID, system, refWindow, shapeCounter,
         shapeCounter[0] += 1
 
 
-def showCommunityByNodes(nvView, cDF, nodeList, system, refWindow, shapeCounter,
-                         nodesAtmSel, colorValDictRGB):
+def showCommunityByNodes(nvView: Any,
+                         cDF: pd.DataFrame,
+                         nodeList: list,
+                         system: str,
+                         refWindow: int,
+                         shapeCounter: Any,
+                         nodesAtmSel: MDAnalysis.AtomGroup,
+                         colorValDictRGB: Any) -> None:
     """Creates NGLView representation of nodes in a community.
 
     Renders a series of spheres to represent all nodes in the selected community.
