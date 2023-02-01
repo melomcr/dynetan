@@ -25,7 +25,7 @@ MODE_CAPPED = 1
 
 
 @jit('i8(i8, i8, i8)', nopython=True)
-def get_lin_index_numba(src, trgt, n):  # pragma: no cover
+def get_lin_index_numba(src: int, trgt: int, n: int) -> int:  # pragma: no cover
     """Conversion from 2D matrix indices to 1D triangular.
 
     Converts from 2D matrix indices to 1D (n*(n-1)/2) unwrapped triangular
@@ -44,17 +44,17 @@ def get_lin_index_numba(src, trgt, n):  # pragma: no cover
 
     # https://stackoverflow.com/questions/27086195/linear-index-upper-triangular-matrix
     k = (n*(n-1)/2) - (n-src)*((n-src)-1)/2 + trgt - src - 1.0
-    return k
+    return int(k)
 
 
 @jit('void(i8, i8, f8[:], i8[:], i8[:], i8[:], f8[:])', nopython=True)
-def atm_to_node_dist(num_nodes,
-                     n_atoms,
-                     tmp_dists,
-                     atom_to_node,
-                     node_group_indices_np,
-                     node_group_indices_np_aux,
-                     node_dists):  # pragma: no cover
+def atm_to_node_dist(num_nodes: int,
+                     n_atoms: int,
+                     tmp_dists: npt.NDArray[np.float64],
+                     atom_to_node: npt.NDArray[np.int64],
+                     node_group_indices_np: npt.NDArray[np.int64],
+                     node_group_indices_np_aux: npt.NDArray[np.int64],
+                     node_dists: npt.NDArray[np.float64]) -> None:  # pragma: no cover
     """Translates MDAnalysis distance calculation to node distance matrix.
 
     This function is JIT compiled by Numba to optimize the search for shortest
@@ -66,7 +66,7 @@ def atm_to_node_dist(num_nodes,
     is used to store the shortest cartesian distance between each pair of nodes.
 
     This is intended as an analysis tool to allow the comparison of network
-    distances and cartesian distances. It is similar to :py:func:`calcContactC`,
+    distances and cartesian distances. It is similar to :py:func:`calc_contact_c`,
     which is optimized for contact detection.
 
     Args:
@@ -283,7 +283,7 @@ def calc_distances(selection: mda.AtomGroup,
 @cython.locals(src=cython.int, trgt=cython.int, n=cython.int)
 @cython.boundscheck(False)  # turn off bounds-checking for entire function
 @cython.wraparound(False)  # turn off negative index wrapping for entire function
-def get_lin_index_c(src, trgt, n):
+def get_lin_index_c(src: int, trgt: int, n: int) -> int:
     """Conversion from 2D matrix indices to 1D triangular.
 
     Converts from 2D matrix indices to 1D (n*(n-1)/2) unwrapped triangular
@@ -306,22 +306,24 @@ def get_lin_index_c(src, trgt, n):
 
 @cython.cfunc
 @cython.returns(cython.void)
-@cython.locals(numNodes=cython.int, nAtoms=cython.int, cutoffDist=cython.float,
-               tmpDists="np.ndarray[np.float_t, ndim=1]",
-               tmpDistsAtms="np.ndarray[np.float_t, ndim=1]",
-               contactMat="np.ndarray[np.int_t, ndim=2]",
-               atomToNode="np.ndarray[np.int_t, ndim=1]",
-               nodeGroupIndicesNP="np.ndarray[np.int_t, ndim=1]",
-               nodeGroupIndicesNPAux="np.ndarray[np.int_t, ndim=1]")
+@cython.locals(num_nodes=cython.int, n_atoms=cython.int, cutoff_dist=cython.float,
+               tmp_dists="np.ndarray[np.float_t, ndim=1]",
+               tmp_dists_atms="np.ndarray[np.float_t, ndim=1]",
+               contact_mat="np.ndarray[np.int_t, ndim=2]",
+               atom_to_node="np.ndarray[np.int_t, ndim=1]",
+               node_group_indices_np="np.ndarray[np.int_t, ndim=1]",
+               node_group_indices_np_aux="np.ndarray[np.int_t, ndim=1]")
 @cython.boundscheck(False)  # turn off bounds-checking for entire function
 @cython.wraparound(False)  # turn off negative index wrapping for entire function
-def calc_contact_c(num_nodes, n_atoms, cutoff_dist,
-                   tmp_dists,
-                   tmp_dists_atms,
-                   contact_mat,
-                   atom_to_node,
-                   node_group_indices_np,
-                   node_group_indices_np_aux):
+def calc_contact_c(num_nodes: int,
+                   n_atoms: int,
+                   cutoff_dist: float,
+                   tmp_dists: npt.NDArray[np.float64],
+                   tmp_dists_atms: npt.NDArray[np.float64],
+                   contact_mat: npt.NDArray[np.int64],
+                   atom_to_node: npt.NDArray[np.int64],
+                   node_group_indices_np: npt.NDArray[np.int64],
+                   node_group_indices_np_aux: npt.NDArray[np.int64]) -> None:
     """Translates MDAnalysis distance calculation to node contact matrix.
 
     This function is Cython compiled to optimize the search for nodes in contact.
@@ -403,14 +405,14 @@ def calc_contact_c(num_nodes, n_atoms, cutoff_dist,
 # High memory usage (nAtoms*(nAtoms-1)/2), calcs all atom distances at once.
 @cython.cfunc
 @cython.returns(cython.void)
-@cython.locals(numNodes=cython.int, nAtoms=cython.int, cutoffDist=cython.float,
-               tmpDists="np.ndarray[np.float_t, ndim=1]",
-               tmpDistsAtms="np.ndarray[np.float_t, ndim=1]",
-               contactMat="np.ndarray[np.int_t, ndim=2]",
-               atomToNode="np.ndarray[np.int_t, ndim=1]",
-               nodeGroupIndicesNP="np.ndarray[np.int_t, ndim=1]",
-               nodeGroupIndicesNPAux="np.ndarray[np.int_t, ndim=1],",
-               dist_mod=cython.int)
+@cython.locals(num_nodes=cython.int, n_atoms=cython.int, cutoff_dist=cython.float,
+               tmp_dists="np.ndarray[np.float_t, ndim=1]",
+               tmp_dists_atms="np.ndarray[np.float_t, ndim=1]",
+               contact_mat="np.ndarray[np.int_t, ndim=2]",
+               atom_to_node="np.ndarray[np.int_t, ndim=1]",
+               node_group_indices_np="np.ndarray[np.int_t, ndim=1]",
+               node_group_indices_np_aux="np.ndarray[np.int_t, ndim=1],",
+               dist_mode=cython.int)
 @cython.boundscheck(False)  # turn off bounds-checking for entire function
 @cython.wraparound(False)  # turn off negative index wrapping for entire function
 def get_contacts_c(selection: mda.AtomGroup,

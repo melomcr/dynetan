@@ -6,10 +6,10 @@
 # For trajectory analysis
 import MDAnalysis as mda
 import numpy
-from typing import Union
+from typing import Any, Union
 
 
-def diagnostic():
+def diagnostic() -> bool:
     """Diagnostic for parallelization of MDAnalysis.
 
     Convenience function to detect if the current MDAnalysis
@@ -306,7 +306,10 @@ def formatNodeGroups(atmGrp: mda.AtomGroup,
                 resName, nodeAtmStr, set(grpAtmStr)))
 
 
-def showNodeGrps(nvView, atmGrp, usrNodeGroups, nodeAtmSel=""):
+def show_node_grps(nv_view: Any,
+                 atm_grp: mda.AtomGroup,
+                 usr_node_groups: dict,
+                 node_atm_sel: str = "") -> None:
     """Labels atoms in an NGLview instance to visualize node groups.
 
     This convenience function helps with the definition of node groups.
@@ -314,12 +317,12 @@ def showNodeGrps(nvView, atmGrp, usrNodeGroups, nodeAtmSel=""):
     of atoms and nodes.
 
     Args:
-        nvView (obj): The initialized NGLview object.
-        atmGrp (obj): The MDanalysis atom group object containing
+        nv_view (obj): The initialized NGLview object.
+        atm_grp (obj): The MDanalysis atom group object containing
             one residue.
-        usrNodeGroups (dict): A dictionary of dictionaries with node groups for
+        usr_node_groups (dict): A dictionary of dictionaries with node groups for
             a given residue.
-        nodeAtmSel (str): A string selecting a node atom so that only atoms in
+        node_atm_sel (str): A string selecting a node atom so that only atoms in
             that group are labeled.
 
     Returns:
@@ -328,32 +331,32 @@ def showNodeGrps(nvView, atmGrp, usrNodeGroups, nodeAtmSel=""):
     """
 
     selectedAtoms = set()
-    for resName, nodeGrp in usrNodeGroups.items():
+    for resName, nodeGrp in usr_node_groups.items():
         for nodeAtm, grpAtms in nodeGrp.items():
-            if (nodeAtmSel != "") and (nodeAtmSel != nodeAtm):
+            if (node_atm_sel != "") and (node_atm_sel != nodeAtm):
                 continue
             selTxtL = ["." + atmStr for atmStr in grpAtms if atmStr != nodeAtm]
             selTxt = " ".join(selTxtL)
 
-            nvView.add_representation(repr_type="label",
-                                      selection=selTxt,
-                                      labelType="atomname",
-                                      color="black")
-            nvView.add_representation(repr_type="label",
-                                      selection="."+nodeAtm,
-                                      labelType="atomname",
-                                      color="green")
+            nv_view.add_representation(repr_type="label",
+                                       selection=selTxt,
+                                       labelType="atomname",
+                                       color="black")
+            nv_view.add_representation(repr_type="label",
+                                       selection="."+nodeAtm,
+                                       labelType="atomname",
+                                       color="green")
 
             selectedAtoms.update(set(grpAtms))
 
     # Create a set of atoms not selected by any node group.
-    unSelectedAtoms = set(atmGrp.names) - selectedAtoms
+    unSelectedAtoms = set(atm_grp.names) - selectedAtoms
 
-    if len(unSelectedAtoms) and (nodeAtmSel == ""):
+    if len(unSelectedAtoms) and (node_atm_sel == ""):
         selTxtL = ["." + atmStr for atmStr in unSelectedAtoms]
         selTxt = " ".join(selTxtL)
 
-        nvView.add_representation(repr_type="label",
-                                  selection=selTxt,
-                                  labelType="atomname",
-                                  color="red")
+        nv_view.add_representation(repr_type="label",
+                                   selection=selTxt,
+                                   labelType="atomname",
+                                   color="red")

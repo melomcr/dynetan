@@ -96,7 +96,7 @@ class DNAproc:
 
     """
 
-    def __init__(self, notebookMode=True):
+    def __init__(self, notebookMode=True):  # type: ignore  # Just during refactoring
         """Constructor
 
         Sets initial values for class variables.
@@ -1599,7 +1599,7 @@ class DNAproc:
                 traj.fill(0)
 
                 # Prepares data for fast calculation of the current window.
-                gc.prepMIc(self.workU, traj, beg, end, self.numNodes, numDims)
+                gc.prep_mi_c(self.workU, traj, beg, end, self.numNodes, numDims)
 
                 # Iterates over all pairs of nodes that are in contact.
                 for atmList in self.progBar(pair_array,
@@ -1608,11 +1608,7 @@ class DNAproc:
                                             ascii=self.asciiMode):
 
                     # Calls the Numba-compiled function.
-                    corr = gc.calcMIRnumba2var(traj[atmList, :, :],
-                                               winLen,
-                                               numDims,
-                                               self.kNeighb,
-                                               psi, phi)
+                    corr = gc.calc_mir_numba_2var(traj[atmList, :, :], winLen, numDims, self.kNeighb, psi, phi)
 
                     # Assures that the Mutual Information estimate is not lower than zero.
                     corr = max(0, corr)
@@ -1680,7 +1676,7 @@ class DNAproc:
                 traj.fill(0)
 
                 # Prepares trajectory data for fast calculation of the current window.
-                gc.prepMIc(self.workU, traj, beg, end, self.numNodes, numDims)
+                gc.prep_mi_c(self.workU, traj, beg, end, self.numNodes, numDims)
 
                 # Create queues that feed processes with node pairs, and gather results.
                 data_queue: queue.Queue = mp.Queue()
@@ -1699,7 +1695,7 @@ class DNAproc:
                     data_queue.put([])
 
                     # Initialize process
-                    proc = mp.Process(target=gc.calcCorProc,
+                    proc = mp.Process(target=gc.calc_cor_proc,
                                       args=(traj,
                                             winLen,
                                             psi,
@@ -2112,7 +2108,7 @@ class DNAproc:
             for proc in procs:
                 proc.join()
 
-    def calcEigenCentral(self):
+    def calcEigenCentral(self) -> None:
         """Wrapper for calculation of node centrality.
 
         Calculates node centrality for all nodes in all simulation windows.
@@ -2127,7 +2123,7 @@ class DNAproc:
             cent = nxeigencentrality(self.nxGraphs[win], weight='weight')
             nx.set_node_attributes(self.nxGraphs[win], cent, 'eigenvector')
 
-    def calcCommunities(self):
+    def calcCommunities(self) -> None:
         """Calculate node communities using Louvain heuristics.
 
         The function produces sets of nodes that are strongly connected,

@@ -92,10 +92,7 @@ class TestVizMethods:
         num_steps = 12345
         ligand_segid = "ABCD"
 
-        prepTclViz(baseName=base_name,
-                   numWinds=num_steps,
-                   ligandSegid=ligand_segid,
-                   trgDir=tmp_dna_test_dir)
+        prepTclViz(base_name=base_name, num_winds=num_steps, ligand_segid=ligand_segid, trg_dir=tmp_dna_test_dir)
 
         new_file_path = os.path.join(tmp_dna_test_dir, "network_view_2.tcl")
 
