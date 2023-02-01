@@ -307,9 +307,9 @@ def formatNodeGroups(atmGrp: mda.AtomGroup,
 
 
 def show_node_grps(nv_view: Any,
-                 atm_grp: mda.AtomGroup,
-                 usr_node_groups: dict,
-                 node_atm_sel: str = "") -> None:
+                   atm_grp: mda.AtomGroup,
+                   usr_node_groups: dict,
+                   node_atm_sel: str = "") -> None:
     """Labels atoms in an NGLview instance to visualize node groups.
 
     This convenience function helps with the definition of node groups.

@@ -111,11 +111,11 @@ def prep_mi_c(universe: MDAnalysis.Universe,
 
 @jit('f8(f8[:,:,:], i4, i8, i4, f8[:], f8[:])', nopython=True)
 def calc_mir_numba_2var(traj: npt.NDArray[np.float64],
-                     num_frames: int,
-                     num_dims: int,
-                     k_neighb: npt.NDArray[np.float64],
-                     psi: npt.NDArray[np.float64],
-                     phi: npt.NDArray[np.float64]) -> float:  # pragma: no cover
+                        num_frames: int,
+                        num_dims: int,
+                        k_neighb: npt.NDArray[np.float64],
+                        psi: npt.NDArray[np.float64],
+                        phi: npt.NDArray[np.float64]) -> float:  # pragma: no cover
     """Calculate mutual information coefficients.
 
     This function estimates the mutual information coefficient based on
@@ -204,13 +204,13 @@ def calc_mir_numba_2var(traj: npt.NDArray[np.float64],
 
 
 def calc_cor_proc(traj: npt.NDArray[np.float64],
-                win_len: int,
-                psi: npt.NDArray[np.float64],
-                phi: npt.NDArray[np.float64],
-                num_dims: int,
-                k_neighb: npt.NDArray[np.float64],
-                in_queue: Queue,
-                out_queue: Queue) -> None:
+                  win_len: int,
+                  psi: npt.NDArray[np.float64],
+                  phi: npt.NDArray[np.float64],
+                  num_dims: int,
+                  k_neighb: npt.NDArray[np.float64],
+                  in_queue: Queue,
+                  out_queue: Queue) -> None:
     """Process for parallel calculation of generalized correlation coefficients.
 
     This function serves as a wrapper and manager for the calculation of
@@ -257,7 +257,12 @@ def calc_cor_proc(traj: npt.NDArray[np.float64],
                 break
 
             # Calls the Numba-compiled function.
-            corr = calc_mir_numba_2var(traj[atmList, :, :], win_len, num_dims, k_neighb, psi, phi)
+            corr = calc_mir_numba_2var(traj[atmList, :, :],
+                                       win_len,
+                                       num_dims,
+                                       k_neighb,
+                                       psi,
+                                       phi)
 
             # Assures that the Mutual Information estimate is not lower than zero.
             corr = max(0, corr)

@@ -398,7 +398,8 @@ class DNAproc:
         creates a matching PDB file to maintain atom and residue names.
 
         Args:
-            file_name_root (str) : Root of the trajectory and structure files to be writen.
+            file_name_root (str) : Root of the trajectory and structure
+                files to be writen.
             stride (int) : Stride used to write the trajectory file.
 
         """
@@ -1608,7 +1609,12 @@ class DNAproc:
                                             ascii=self.asciiMode):
 
                     # Calls the Numba-compiled function.
-                    corr = gc.calc_mir_numba_2var(traj[atmList, :, :], winLen, numDims, self.kNeighb, psi, phi)
+                    corr = gc.calc_mir_numba_2var(traj[atmList, :, :],
+                                                  winLen,
+                                                  numDims,
+                                                  self.kNeighb,
+                                                  psi,
+                                                  phi)
 
                     # Assures that the Mutual Information estimate is not lower than zero.
                     corr = max(0, corr)
