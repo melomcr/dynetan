@@ -1166,7 +1166,7 @@ class DNAproc:
             pairPc = round((len(pairs) / totalPairs) * 100, 1)
             print("(That's {0}%, by the way)".format(pairPc))
 
-    # TODO: reduce complexity - Flake8 marks it at 20
+    # TODO: reduce complexity - Flake8 marks it at 22
     def _remove_isolated(self, verbose: int = 0) -> None:  # noqa: C901
 
         if verbose > 0:
@@ -1483,7 +1483,56 @@ class DNAproc:
                             mat[nodeIndx, trgtIndx] = 0
                             mat[trgtIndx, nodeIndx] = 0
 
-    # TODO: reduce complexity - Flake8 marks it at 27
+    def _create_pair_list(self, winIndx: int, verbose: int = 0) -> np.ndarray:
+        """ Creates list of pairs of nodes in contact.
+
+        The list is ordered to reduce the frequency with which parallel
+        calculations will read the same trajectory (access the same memory).
+        The method will also remove pairs for which we already have correlations.
+
+        Args:
+            winIndx (int) : Defines the window used to find contacts.
+            verbose (int) : Defines verbosity of output.
+
+        Returns:
+
+        """
+
+        assert isinstance(winIndx, int)
+        assert isinstance(verbose, int)
+
+        pairList: list = []
+
+        # Build pair list avoiding overlapping nodes (which would require
+        # reading the same trajectory).
+        for diag in range(1, self.numNodes):
+            contI = 0
+            contJ = diag
+            while contJ < self.numNodes:
+                if self.contactMatAll[winIndx, contI, contJ]:
+                    pairList.append([contI, contJ])
+                contI += 1
+                contJ += 1
+
+        # Removes pairs of nodes that already have a result
+        # ATTENTION: Contacts that had zero correlation will be recalculated!
+        upTri = np.triu(self.corrMatAll[winIndx, :, :])
+        upTriT = np.asarray(np.where(upTri > 0)).T
+        precalcPairList = upTriT.tolist()
+
+        if 0 < len(precalcPairList):
+
+            if verbose > 0:
+                verStr = f"Removing {len(precalcPairList)} pairs with " \
+                         f"pre-calculated correlations in window {winIndx}."
+                print(verStr)
+
+            pairList = [pair for pair in pairList
+                        if pair not in precalcPairList]
+
+        return np.asarray(pairList)
+
+    # TODO: reduce complexity - Flake8 marks it at 19
     def calcCor(self,  # noqa: C901
                 ncores: int = 1,
                 forceCalc: bool = False,
@@ -1555,55 +1604,35 @@ class DNAproc:
         for tmpindx in range(1, (self.kNeighb + 1)):
             phi[tmpindx] = psi[tmpindx] - 1 / tmpindx
 
-        if ncores == 1:
+        for winIndx in self.progBar(range(self.numWinds),
+                                    total=self.numWinds,
+                                    desc="Window",
+                                    ascii=self.asciiMode):
+            beg = int(winIndx * winLen)
+            end = int((winIndx + 1) * winLen)
 
-            if verbose > 0:
-                print("- > Using single-core implementation.")
+            pair_array = self._create_pair_list(winIndx, verbose)
 
-            for winIndx in self.progBar(range(self.numWinds),
-                                        total=self.numWinds,
-                                        desc="Window",
-                                        ascii=self.asciiMode):
+            if pair_array.shape[0] == 0:
+                if verbose > 0:
+                    print(f"No new correlations to be calculated "
+                          f"in window {winIndx}.")
+                break
+            else:
+                if verbose > 0:
+                    print(f"{pair_array.shape[0]} new correlations to "
+                          f"be calculated in window {winIndx}.")
 
-                beg = int(winIndx * winLen)
-                end = int((winIndx + 1) * winLen)
+            # Resets the trajectory NP array for the current window.
+            traj.fill(0)
 
-                # Copy the current window's contact matrix into a mask
-                corMask = self.contactMatAll[winIndx, :, :].copy()
+            # Prepares data for fast calculation of the current window.
+            gc.prep_mi_c(self.workU, traj, beg, end, self.numNodes, numDims)
 
-                # Remove from mask all contacts for which we already have correlations
-                # This will prevent re-calculation of known correlations
-                # and will restrict calculation to new contacts.
-                # ATTENTION: Contacts that have zero correlation will be recalculated!
-                upTri = np.triu(self.corrMatAll[winIndx, :, :])
-                prev_res_ind = np.where(upTri > 0)
-                corMask[prev_res_ind] = 0
+            if ncores == 1:
 
-                if 0 < prev_res_ind[0].shape[0]:
-
-                    if verbose > 0:
-                        verStr = f"Removing {prev_res_ind[0].shape[0]} pairs with " \
-                                 f"pre-calculated correlations in window {winIndx}."
-                        print(verStr)
-
-                # Create pair list from mask
-                pair_array = np.asarray(np.where(np.triu(corMask[:, :]) > 0)).T
-
-                if pair_array.shape[0] == 0:
-                    if verbose > 0:
-                        print(f"No new correlations to be calculated "
-                              f"in window {winIndx}.")
-                    break
-                else:
-                    if verbose > 0:
-                        print(f"{pair_array.shape[0]} new correlations to "
-                              f"be calculated in window {winIndx}.")
-
-                # Resets the trajectory NP array for the current window.
-                traj.fill(0)
-
-                # Prepares data for fast calculation of the current window.
-                gc.prep_mi_c(self.workU, traj, beg, end, self.numNodes, numDims)
+                if verbose > 0:
+                    print("- > Using single-core implementation.")
 
                 # Iterates over all pairs of nodes that are in contact.
                 for atmList in self.progBar(pair_array,
@@ -1612,80 +1641,22 @@ class DNAproc:
                                             ascii=self.asciiMode):
 
                     # Calls the Numba-compiled function.
-                    corr = gc.calc_mir_numba_2var(traj[atmList, :, :],
-                                                  winLen,
-                                                  numDims,
-                                                  self.kNeighb,
-                                                  psi,
-                                                  phi)
+                    mir = gc.calc_mir_numba_2var(traj[atmList, :, :],
+                                                 winLen,
+                                                 numDims,
+                                                 self.kNeighb,
+                                                 psi,
+                                                 phi)
 
-                    # Assures that the Mutual Information estimate is not lower than zero.
-                    corr = max(0, corr)
-
-                    # Determine generalized correlation coeff from the Mutual Information
-                    if corr:
-                        corr = np.sqrt(1 - np.exp(-2.0 / numDims * corr))
+                    corr = gc.mir_to_corr(mir)
 
                     self.corrMatAll[winIndx, atmList[0], atmList[1]] = corr
                     self.corrMatAll[winIndx, atmList[1], atmList[0]] = corr
 
-        else:
+            else:
 
-            if verbose > 0:
-                print(f"- > Using multi-core implementation with {ncores} threads.")
-
-            for winIndx in self.progBar(range(self.numWinds),
-                                        total=self.numWinds,
-                                        desc="Window",
-                                        ascii=self.asciiMode):
-                beg = int(winIndx * winLen)
-                end = int((winIndx + 1) * winLen)
-
-                pairList: list = []
-
-                # Build pair list avoiding overlapping nodes (which would require
-                # reading the same trajectory).
-                for diag in range(1, self.numNodes):
-                    contI = 0
-                    contJ = diag
-                    while contJ < self.numNodes:
-                        if self.contactMatAll[winIndx, contI, contJ]:
-                            pairList.append([contI, contJ])
-                        contI += 1
-                        contJ += 1
-
-                # Removes pairs of nodes that already have a result
-                upTri = np.triu(self.corrMatAll[winIndx, :, :])
-                upTriT = np.asarray(np.where(upTri > 0)).T
-                precalcPairList = upTriT.tolist()
-
-                if 0 < len(precalcPairList):
-
-                    if verbose > 0:
-                        verStr = f"Removing {len(precalcPairList)} pairs with " \
-                                 f"pre-calculated correlations in window {winIndx}."
-                        print(verStr)
-
-                    pairList = [pair for pair in pairList
-                                if pair not in precalcPairList]
-
-                pair_array = np.asarray(pairList)
-
-                if pair_array.shape[0] == 0:
-                    if verbose > 0:
-                        print(f"No new correlations to be calculated "
-                              f"in window {winIndx}.")
-                    break
-                else:
-                    if verbose > 0:
-                        print(f"{pair_array.shape[0]} new correlations to "
-                              f"be calculated in window {winIndx}.")
-
-                # Resets the trajectory NP array for the current window.
-                traj.fill(0)
-
-                # Prepares trajectory data for fast calculation of the current window.
-                gc.prep_mi_c(self.workU, traj, beg, end, self.numNodes, numDims)
+                if verbose > 0:
+                    print(f"- > Using multi-core implementation with {ncores} threads.")
 
                 # Create queues that feed processes with node pairs, and gather results.
                 data_queue: queue.Queue = mp.Queue()
@@ -1725,8 +1696,12 @@ class DNAproc:
                     # then puts it in the matrix.
                     result = results_queue.get()
 
-                    self.corrMatAll[winIndx, result[0][0], result[0][1]] = result[1]
-                    self.corrMatAll[winIndx, result[0][1], result[0][0]] = result[1]
+                    node1 = result[0][0]
+                    node2 = result[0][1]
+                    corr = gc.mir_to_corr(result[1])
+
+                    self.corrMatAll[winIndx, node1, node2] = corr
+                    self.corrMatAll[winIndx, node2, node1] = corr
 
                 # Joins processes.
                 for proc in procs:

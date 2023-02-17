@@ -257,17 +257,27 @@ def calc_cor_proc(traj: npt.NDArray[np.float64],
                 break
 
             # Calls the Numba-compiled function.
-            corr = calc_mir_numba_2var(traj[atmList, :, :],
-                                       win_len,
-                                       num_dims,
-                                       k_neighb,
-                                       psi,
-                                       phi)
+            mir = calc_mir_numba_2var(traj[atmList, :, :],
+                                      win_len,
+                                      num_dims,
+                                      k_neighb,
+                                      psi,
+                                      phi)
 
-            # Assures that the Mutual Information estimate is not lower than zero.
-            corr = max(0, corr)
+            out_queue.put((atmList, mir))
 
-            # Determine generalized correlation coefficient from the Mutual Information
-            corr = np.sqrt(1-np.exp(-corr*(2.0/3)))
 
-            out_queue.put((atmList, corr))
+def mir_to_corr(mir: float, num_dims: int = 3) -> float:
+    """Transforms Mutual Information R into Generalized Correlation Coefficient
+
+    Returns:
+        Generalized Correlation Coefficient (float)
+    """
+
+    # Assures that the Mutual Information estimate is not lower than zero.
+    corr = max(0.0, mir)
+
+    # Determine generalized correlation coefficient from the Mutual Information
+    corr = np.sqrt(1 - np.exp(-corr * (2.0 / num_dims)))
+
+    return corr

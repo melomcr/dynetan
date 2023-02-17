@@ -182,6 +182,14 @@ def calc_distances(selection: mda.AtomGroup,
 
     """
 
+    assert isinstance(num_nodes, int)
+    assert isinstance(n_atoms, int)
+    assert isinstance(cutoff_dist, float)
+    assert isinstance(backend, str)
+    assert isinstance(verbose, int)
+
+    assert dist_mode in [MODE_ALL, MODE_CAPPED]
+
     if verbose > 1:
         msg_str = "There are {} nodes and {} atoms in this system."
         print(msg_str.format(num_nodes, n_atoms))
@@ -192,7 +200,7 @@ def calc_distances(selection: mda.AtomGroup,
 
     if dist_mode == MODE_ALL:
 
-        tmpDists: npt.NDArray[np.float64] = \
+        tmp_dists: npt.NDArray[np.float64] = \
             np.zeros(int(n_atoms * (n_atoms - 1) / 2), dtype=np.float64)
 
         if verbose > 1:
@@ -203,7 +211,8 @@ def calc_distances(selection: mda.AtomGroup,
             start = timer()
 
         # serial vs OpenMP
-        mdadist.self_distance_array(selection.positions, result=tmpDists, backend=backend)
+        mdadist.self_distance_array(selection.positions,
+                                    result=tmp_dists, backend=backend)
 
         if verbose > 1:
             end = timer()
@@ -211,7 +220,8 @@ def calc_distances(selection: mda.AtomGroup,
 
     elif dist_mode == MODE_CAPPED:
 
-        tmpDists = np.full(int(n_atoms * (n_atoms - 1) / 2), cutoff_dist * 2, dtype=float)
+        tmp_dists = np.full(int(n_atoms * (n_atoms - 1) / 2), cutoff_dist * 2,
+                            dtype=float)
 
         if verbose > 1:
             end = timer()
@@ -251,14 +261,11 @@ def calc_distances(selection: mda.AtomGroup,
 
             # Go from 2D node indices to 1D (numNodes*(numNodes-1)/2) indices:
             ijLI = get_lin_index_numba(i, j, n_atoms)
-            tmpDists[ijLI] = distances[k]
+            tmp_dists[ijLI] = distances[k]
 
         if verbose > 1:
             end = timer()
             print("Time for loading distances:", timedelta(seconds=end-start))
-
-    else:
-        raise Exception(f"Unknown distance calculation mode: {dist_mode}")
 
     if verbose > 1:
         print("running atmToNodeDist...")
@@ -267,7 +274,7 @@ def calc_distances(selection: mda.AtomGroup,
     # Translate atoms distances in minimum node distance.
     atm_to_node_dist(num_nodes,
                      n_atoms,
-                     tmpDists,
+                     tmp_dists,
                      atom_to_node,
                      node_group_indices_np,
                      node_group_indices_np_aux,
