@@ -61,7 +61,7 @@ def tmp_dna_test_dir(tmp_path_factory):
 def dnap_omp_loaded(dnap_omp):
     dnap_omp.checkSystem()
 
-    dnap_omp.selectSystem(with_solvent=False)
+    dnap_omp.selectSystem(withSolvent=False)
 
     dnap_omp.prepareNetwork(verbose=0)
 

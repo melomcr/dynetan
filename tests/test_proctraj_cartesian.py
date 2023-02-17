@@ -28,7 +28,7 @@ def load_sys_solv_mode(dnap_base, solv, mode):
 
     dnap_base.checkSystem()
 
-    dnap_base.selectSystem(with_solvent=solv)
+    dnap_base.selectSystem(withSolvent=solv)
 
     dnap_base.prepareNetwork(verbose=0)
 

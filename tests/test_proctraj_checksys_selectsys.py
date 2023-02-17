@@ -64,17 +64,13 @@ class TestPackageSysVerificationSelection:
         pytest.param(True, "all", "False", marks=xfail_strict)],)
     def test_select_system(self, dnap_omp, solv, sel, verb):
         dnap_omp.checkSystem()
-        dnap_omp.selectSystem(with_solvent=solv,
-                              input_sel_str=sel,
-                              verbose=verb)
+        dnap_omp.selectSystem(withSolvent=solv, inputSelStr=sel, verbose=verb)
 
     def test_select_system_pre_check(self, dnap_omp):
         # We will intentionally SKIP the "checkSystem" method to test if
         # the "selectSystem" method will automatically call "checkSystem" to
         # initialize variables.
-        dnap_omp.selectSystem(with_solvent=False,
-                              input_sel_str="",
-                              verbose=0)
+        dnap_omp.selectSystem(withSolvent=False, inputSelStr="", verbose=0)
 
         assert dnap_omp.notSelSegidSet is not None
 
@@ -104,7 +100,7 @@ class TestPackageSysVerificationSelection:
         dnap_fail.setNodeGroups(node_grps)
 
         dnap_fail.checkSystem()
-        dnap_fail.selectSystem(with_solvent=False, input_sel_str="")
+        dnap_fail.selectSystem(withSolvent=False, inputSelStr="")
 
     @pytest.mark.parametrize(("solv", "sel", "verb", "n_atoms"), [
         (True, "protein", 0, 3291),
@@ -114,9 +110,7 @@ class TestPackageSysVerificationSelection:
     ])
     def test_select_system_proc(self, dnap_omp, solv, sel, verb, n_atoms):
         dnap_omp.checkSystem()
-        dnap_omp.selectSystem(with_solvent=solv,
-                              input_sel_str=sel,
-                              verbose=verb)
+        dnap_omp.selectSystem(withSolvent=solv, inputSelStr=sel, verbose=verb)
         assert len(dnap_omp.getU().atoms) == n_atoms
 
     @pytest.mark.parametrize(("verb", "out_txt"), [
@@ -124,9 +118,7 @@ class TestPackageSysVerificationSelection:
         (2, "New residues included")])
     def test_select_system_verb(self, dnap_omp, capfd, verb, out_txt):
         dnap_omp.checkSystem()
-        dnap_omp.selectSystem(with_solvent=True,
-                              input_sel_str="",
-                              verbose=verb)
+        dnap_omp.selectSystem(withSolvent=True, inputSelStr="", verbose=verb)
 
         captured = capfd.readouterr()
         assert out_txt in captured.out
@@ -161,5 +153,5 @@ class TestPackageSysVerificationSelection:
         # END of artificial system changes
 
         dnap_omp.checkSystem()
-        dnap_omp.selectSystem(with_solvent=solv, input_sel_str="")
+        dnap_omp.selectSystem(withSolvent=solv, inputSelStr="")
         assert len(dnap_omp.getU().atoms) == n_atoms

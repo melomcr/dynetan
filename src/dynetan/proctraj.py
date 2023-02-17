@@ -516,8 +516,8 @@ class DNAproc:
         self.notSelSegidSet = notSelSegidSet
 
     def selectSystem(self,
-                     with_solvent: bool = False,
-                     input_sel_str: str = "",
+                     withSolvent: bool = False,
+                     inputSelStr: str = "",
                      verbose: int = 0) -> None:
         """Selects all atoms used to define node groups.
 
@@ -535,10 +535,10 @@ class DNAproc:
 
         Args:
 
-            with_solvent (bool): Controls if the function will try to automatically
+            withSolvent (bool): Controls if the function will try to automatically
                 detect solvent molecules.
 
-            input_sel_str (str): Uses a user-defined selection for the system. This
+            inputSelStr (str): Uses a user-defined selection for the system. This
                 disables automatic detection of solvent/ions/lipids and other
                 residues that may have transient contact with the target system.
 
@@ -546,30 +546,30 @@ class DNAproc:
 
         """
 
-        assert isinstance(with_solvent, bool)
-        assert isinstance(input_sel_str, str)
+        assert isinstance(withSolvent, bool)
+        assert isinstance(inputSelStr, str)
         assert isinstance(verbose, int)
 
         if self.notSelSegidSet is None:
             print("Checking system for information on residues and segments...")
             self.checkSystem()
 
-        if (not with_solvent) and (not self.solventNames):
+        if (not withSolvent) and (not self.solventNames):
             err_str = "ERROR: Automatic removal of all solvent molecules can " \
                       "only happen if we have a list of solvent residue names, " \
                       "but no solvent names were provided. Aborting function call."
             raise Exception(err_str)
 
-        if input_sel_str.strip():
+        if inputSelStr.strip():
             print("Using user-defined selection string:")
-            print(input_sel_str)
+            print(inputSelStr)
             print("\nATTENTION: automatic identification of "
                   "solvent and ions is DISABLED.")
 
-            initialSel = self.workU.select_atoms(input_sel_str)
+            initialSel = self.workU.select_atoms(inputSelStr)
 
         else:
-            if with_solvent:
+            if withSolvent:
                 # For automatic solvent detection, we use the segIDs that were
                 # not selected by the user as targets for network analysis.
                 if self.notSelSegidSet:
@@ -907,15 +907,15 @@ class DNAproc:
             print("Nodes are ready for network analysis.")
 
     def alignTraj(self,
-                  select_str: str = "",
-                  in_memory: bool = True,
+                  selectStr: str = "",
+                  inMemory: bool = True,
                   verbose: int = 0) -> None:
         """
         Wrapper function for MDAnalysis trajectory alignment tool.
 
         Args:
-            in_memory: Controls if MDAnalysis `AlignTraj` will run in memory.
-            select_str: User defined selection for alignment. If empty, will
+            inMemory: Controls if MDAnalysis `AlignTraj` will run in memory.
+            selectStr: User defined selection for alignment. If empty, will
                 use default: Select all user-defined segments and exclude
                 hydrogen atoms.
             verbose: Controls verbosity level.
@@ -924,19 +924,19 @@ class DNAproc:
             none
         """
 
-        assert isinstance(in_memory, bool)
-        assert isinstance(select_str, str)
+        assert isinstance(inMemory, bool)
+        assert isinstance(selectStr, str)
         assert isinstance(verbose, int)
 
         from MDAnalysis.analysis import align as mdaAlign
 
-        if not select_str.strip():
-            select_str = "segid " + " ".join(self.segIDs) + \
+        if not selectStr.strip():
+            selectStr = "segid " + " ".join(self.segIDs) + \
                          " and not (name H* or name [123]H*)"
 
         if verbose > 1:
             print("Using alignment selection string: ")
-            print(select_str)
+            print(selectStr)
 
         # Set the first frame as reference for alignment.
         # The opperator[] is used in MDanalysis to select a reference frame for
@@ -944,9 +944,9 @@ class DNAproc:
         _ = self.workU.trajectory[0]
 
         alignment = mdaAlign.AlignTraj(self.workU, self.workU,
-                                       select=select_str,
+                                       select=selectStr,
                                        verbose=verbose,
-                                       in_memory=in_memory,
+                                       in_memory=inMemory,
                                        weights="mass")
         alignment.run()
 

@@ -20,11 +20,11 @@ def test_align(dnap_omp, select_str, in_memory, position):
     """
     dnap_omp.checkSystem()
 
-    dnap_omp.selectSystem(with_solvent=False)
+    dnap_omp.selectSystem(withSolvent=False)
 
     dnap_omp.prepareNetwork(verbose=False)
 
-    dnap_omp.alignTraj(select_str=select_str, in_memory=in_memory)
+    dnap_omp.alignTraj(selectStr=select_str, inMemory=in_memory)
 
     _ = dnap_omp.getU().trajectory[-1]
     test_atm_sel = dnap_omp.getU().select_atoms("resid 61 and resname LYS")
@@ -38,11 +38,11 @@ def test_align_verb(dnap_omp, capfd):
     """
     dnap_omp.checkSystem()
 
-    dnap_omp.selectSystem(with_solvent=False)
+    dnap_omp.selectSystem(withSolvent=False)
 
     dnap_omp.prepareNetwork(verbose=False)
 
-    dnap_omp.alignTraj(select_str="protein and resid 61", verbose=2)
+    dnap_omp.alignTraj(selectStr="protein and resid 61", verbose=2)
 
     captured = capfd.readouterr()
 
@@ -67,7 +67,7 @@ def test_find_contacts(dnap_omp, solv, stride, num_contacts):
     """
     dnap_omp.checkSystem()
 
-    dnap_omp.selectSystem(with_solvent=solv)
+    dnap_omp.selectSystem(withSolvent=solv)
 
     dnap_omp.prepareNetwork(verbose=False)
 
@@ -87,7 +87,7 @@ def test_check_contact_mat(dnap_omp):
     """
     dnap_omp.checkSystem()
 
-    dnap_omp.selectSystem(with_solvent=False)
+    dnap_omp.selectSystem(withSolvent=False)
 
     dnap_omp.prepareNetwork(verbose=False)
 
@@ -112,7 +112,7 @@ def test_find_contacts_verb(dnap_omp, capfd):
 
     dnap_omp.checkSystem()
 
-    dnap_omp.selectSystem(with_solvent=False)
+    dnap_omp.selectSystem(withSolvent=False)
 
     dnap_omp.prepareNetwork(verbose=False)
 
@@ -155,7 +155,7 @@ def test_find_contacts_verb_dist_mode(dnap_omp, capfd,
                                       dist_mode, mode_str, fill_str):
     dnap_omp.setDistanceMode(dist_mode)
 
-    dnap_omp.selectSystem(with_solvent=False)
+    dnap_omp.selectSystem(withSolvent=False)
 
     dnap_omp.prepareNetwork(verbose=False)
 
@@ -172,7 +172,7 @@ def test_find_contacts_verb_dist_mode(dnap_omp, capfd,
     pytest.param(10, "Checking frames 0 to 10 with stride 2.")
 ])
 def test_find_contacts_verb_frame_sel(dnap_omp, capfd, end_frame, output_str):
-    dnap_omp.selectSystem(with_solvent=False)
+    dnap_omp.selectSystem(withSolvent=False)
 
     dnap_omp.prepareNetwork(verbose=False)
 
@@ -212,7 +212,7 @@ def test_filter_contacts(dnap_omp, capfd,
 
     dnap_omp.checkSystem()
 
-    dnap_omp.selectSystem(with_solvent=False)
+    dnap_omp.selectSystem(withSolvent=False)
 
     dnap_omp.prepareNetwork(verbose=False)
 
@@ -239,7 +239,7 @@ def test_filter_contacts_verb(dnap_omp, capfd):
 
     dnap_omp.checkSystem()
 
-    dnap_omp.selectSystem(with_solvent=False)
+    dnap_omp.selectSystem(withSolvent=False)
 
     dnap_omp.prepareNetwork(verbose=False)
 

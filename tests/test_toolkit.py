@@ -28,7 +28,7 @@ class TestToolkitClass:
         from dynetan.toolkit import getSelFromNode
 
         dnap_omp.checkSystem()
-        dnap_omp.selectSystem(with_solvent=False)
+        dnap_omp.selectSystem(withSolvent=False)
         dnap_omp.prepareNetwork()
 
         # Test node from MDanalysis selection

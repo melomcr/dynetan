@@ -28,7 +28,7 @@ def test_node_groups_new_res(dnap_omp):
     """
     dnap_omp.checkSystem()
 
-    dnap_omp.selectSystem(with_solvent=False)
+    dnap_omp.selectSystem(withSolvent=False)
 
     dnap_omp.prepareNetwork(verbose=False)
 
@@ -56,7 +56,7 @@ def test_node_groups_unk_res(dnap_omp):
 
     dnap_omp.checkSystem()
 
-    dnap_omp.selectSystem(with_solvent=False)
+    dnap_omp.selectSystem(withSolvent=False)
 
     dnap_omp.prepareNetwork(verbose=False)
 
@@ -79,7 +79,7 @@ def test_node_groups_unk_node_atom(dnap_omp):
 
     dnap_omp.checkSystem()
 
-    dnap_omp.selectSystem(with_solvent=False)
+    dnap_omp.selectSystem(withSolvent=False)
 
     dnap_omp.prepareNetwork(verbose=False, autocomp_groups=False)
 
@@ -102,7 +102,7 @@ def test_node_groups_unk_atoms(dnap_omp):
 
     dnap_omp.checkSystem()
 
-    dnap_omp.selectSystem(with_solvent=False)
+    dnap_omp.selectSystem(withSolvent=False)
 
     dnap_omp.prepareNetwork(verbose=False, autocomp_groups=False)
 
@@ -126,7 +126,7 @@ def test_node_groups_unk_atoms_verb(dnap_omp, capfd):
 
     dnap_omp.checkSystem()
 
-    dnap_omp.selectSystem(with_solvent=False)
+    dnap_omp.selectSystem(withSolvent=False)
 
     try:
         dnap_omp.prepareNetwork(verbose=2, autocomp_groups=False)
@@ -168,7 +168,7 @@ def test_prepnet_water(dnap_omp, solv, atm_grp):
 
     dnap_omp.checkSystem()
 
-    dnap_omp.selectSystem(with_solvent=solv)
+    dnap_omp.selectSystem(withSolvent=solv)
 
     dnap_omp.prepareNetwork(verbose=False, autocomp_groups=True)
 
@@ -189,7 +189,7 @@ def test_prepnet_groups(dnap_omp):
 
     dnap_omp.checkSystem()
 
-    dnap_omp.selectSystem(with_solvent=False)
+    dnap_omp.selectSystem(withSolvent=False)
 
     dnap_omp.prepareNetwork(verbose=False)
 
@@ -251,8 +251,8 @@ def test_prepnet_autocomplete(dnap_omp):
 
     dnap_omp.checkSystem()
 
-    dnap_omp.selectSystem(with_solvent=False,
-                          input_sel_str="protein or resname OMP or resname SOD")
+    dnap_omp.selectSystem(withSolvent=False,
+                          inputSelStr="protein or resname OMP or resname SOD")
 
     dnap_omp.prepareNetwork(verbose=False, autocomp_groups=True)
 
@@ -292,9 +292,7 @@ def test_prepnet_autocomplete(dnap_omp):
 
 def test_prepnet_verb(dnap_omp, capfd):
     dnap_omp.checkSystem()
-    dnap_omp.selectSystem(with_solvent=True,
-                          input_sel_str="protein",
-                          verbose=0)
+    dnap_omp.selectSystem(withSolvent=True, inputSelStr="protein", verbose=0)
 
     dnap_omp.prepareNetwork(verbose=1, autocomp_groups=True)
 
@@ -314,9 +312,7 @@ def test_prepnet_verb(dnap_omp, capfd):
         ("", (1928,), (486,))])
 def test_prepnet_grp_indices(dnap_omp, sel_str, NPshape, NPAuxshape):
     dnap_omp.checkSystem()
-    dnap_omp.selectSystem(with_solvent=True,
-                          input_sel_str=sel_str,
-                          verbose=0)
+    dnap_omp.selectSystem(withSolvent=True, inputSelStr=sel_str, verbose=0)
     dnap_omp.prepareNetwork(verbose=0, autocomp_groups=True)
 
     assert dnap_omp.nodeGroupIndicesNP.shape == NPshape
