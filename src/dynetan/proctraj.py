@@ -48,7 +48,7 @@ import copy
 from timeit import default_timer as timer
 from datetime import timedelta
 
-from typing import Literal, Union, Any
+from typing import Literal, Union, Any, Tuple
 
 dist_modes_literal = Literal["all", "capped"]
 dist_modes = ["all", "capped"]
@@ -1483,7 +1483,35 @@ class DNAproc:
                             mat[nodeIndx, trgtIndx] = 0
                             mat[trgtIndx, nodeIndx] = 0
 
-    def _create_pair_list(self, winIndx: int, verbose: int = 0) -> np.ndarray:
+    def _prep_phi_psi(self, win_len: int) -> Tuple[np.ndarray, np.ndarray]:
+        """ Pre-calculate Phi and Psi
+
+        Args:
+            win_len: number of frames in each trajectory window
+
+        Returns:
+            Pre-calculated psi and spi arrays.
+        """
+
+        # Pre-calculate psi values for all frames.
+        # (allocation and initialization step)
+        psi: npt.NDArray = np.zeros([win_len + 1], dtype=np.float64)
+        psi[1] = -0.57721566490153
+
+        # Pre-calculate psi values for all frames.
+        # (actual calculation step)
+        for indx in range(win_len):
+            if indx > 0:
+                psi[indx + 1] = psi[indx] + 1 / indx
+
+        # Pre calculates "psi[k] - 1/k"
+        phi: np.ndarray = np.ndarray([self.kNeighb + 1], dtype=np.float64)
+        for indx in range(1, (self.kNeighb + 1)):
+            phi[indx] = psi[indx] - 1 / indx
+
+        return psi, phi
+
+    def _create_pair_list(self, win_indx: int, verbose: int = 0) -> np.ndarray:
         """ Creates list of pairs of nodes in contact.
 
         The list is ordered to reduce the frequency with which parallel
@@ -1491,14 +1519,14 @@ class DNAproc:
         The method will also remove pairs for which we already have correlations.
 
         Args:
-            winIndx (int) : Defines the window used to find contacts.
+            win_indx (int) : Defines the window used to find contacts.
             verbose (int) : Defines verbosity of output.
 
         Returns:
 
         """
 
-        assert isinstance(winIndx, int)
+        assert isinstance(win_indx, int)
         assert isinstance(verbose, int)
 
         pairList: list = []
@@ -1509,14 +1537,14 @@ class DNAproc:
             contI = 0
             contJ = diag
             while contJ < self.numNodes:
-                if self.contactMatAll[winIndx, contI, contJ]:
+                if self.contactMatAll[win_indx, contI, contJ]:
                     pairList.append([contI, contJ])
                 contI += 1
                 contJ += 1
 
         # Removes pairs of nodes that already have a result
         # ATTENTION: Contacts that had zero correlation will be recalculated!
-        upTri = np.triu(self.corrMatAll[winIndx, :, :])
+        upTri = np.triu(self.corrMatAll[win_indx, :, :])
         upTriT = np.asarray(np.where(upTri > 0)).T
         precalcPairList = upTriT.tolist()
 
@@ -1524,7 +1552,7 @@ class DNAproc:
 
             if verbose > 0:
                 verStr = f"Removing {len(precalcPairList)} pairs with " \
-                         f"pre-calculated correlations in window {winIndx}."
+                         f"pre-calculated correlations in window {win_indx}."
                 print(verStr)
 
             pairList = [pair for pair in pairList
@@ -1532,7 +1560,7 @@ class DNAproc:
 
         return np.asarray(pairList)
 
-    # TODO: reduce complexity - Flake8 marks it at 19
+    # TODO: reduce complexity - Flake8 marks it at 16
     def calcCor(self,  # noqa: C901
                 ncores: int = 1,
                 forceCalc: bool = False,
@@ -1565,15 +1593,15 @@ class DNAproc:
         assert ncores >= 1, "Number of cores must be at least 1."
 
         # For 3D atom position data
-        numDims = 3
+        num_dims = 3
 
         if verbose > 0:
             print("Calculating correlations...\n")
 
-        winLen = int(np.floor(self.workU.trajectory.n_frames / self.numWinds))
+        win_len = int(np.floor(self.workU.trajectory.n_frames / self.numWinds))
 
         if verbose > 0:
-            print("Using window length of {} simulation steps.".format(winLen))
+            print(f"Using window length of {win_len} simulation steps.")
 
         # Check if the correlation matrix already exists (if this function is
         #   being executed again on the same system, with updated contacts), or
@@ -1585,31 +1613,17 @@ class DNAproc:
                                        dtype=np.float64)
 
         # Stores all data in a dimension-by-frame format.
-        traj: np.ndarray = np.ndarray([self.numNodes, numDims, winLen],
+        traj: np.ndarray = np.ndarray([self.numNodes, num_dims, win_len],
                                       dtype=np.float64)
 
-        # Pre-calculate psi values for all frames.
-        # (allocation and initialization step)
-        psi: npt.NDArray = np.zeros([winLen + 1], dtype=np.float64)
-        psi[1] = -0.57721566490153
-
-        # Pre-calculate psi values for all frames.
-        # (actual calculation step)
-        for indx in range(winLen):
-            if indx > 0:
-                psi[indx + 1] = psi[indx] + 1 / indx
-
-        # Pre calculates "psi[k] - 1/k"
-        phi: np.ndarray = np.ndarray([self.kNeighb + 1], dtype=np.float64)
-        for tmpindx in range(1, (self.kNeighb + 1)):
-            phi[tmpindx] = psi[tmpindx] - 1 / tmpindx
+        psi, phi = self._prep_phi_psi(win_len)
 
         for winIndx in self.progBar(range(self.numWinds),
                                     total=self.numWinds,
                                     desc="Window",
                                     ascii=self.asciiMode):
-            beg = int(winIndx * winLen)
-            end = int((winIndx + 1) * winLen)
+            beg = int(winIndx * win_len)
+            end = int((winIndx + 1) * win_len)
 
             pair_array = self._create_pair_list(winIndx, verbose)
 
@@ -1627,7 +1641,7 @@ class DNAproc:
             traj.fill(0)
 
             # Prepares data for fast calculation of the current window.
-            gc.prep_mi_c(self.workU, traj, beg, end, self.numNodes, numDims)
+            gc.prep_mi_c(self.workU, traj, beg, end, self.numNodes, num_dims)
 
             if ncores == 1:
 
@@ -1642,8 +1656,8 @@ class DNAproc:
 
                     # Calls the Numba-compiled function.
                     mir = gc.calc_mir_numba_2var(traj[atmList, :, :],
-                                                 winLen,
-                                                 numDims,
+                                                 win_len,
+                                                 num_dims,
                                                  self.kNeighb,
                                                  psi,
                                                  phi)
@@ -1677,10 +1691,10 @@ class DNAproc:
                     # Initialize process
                     proc = mp.Process(target=gc.calc_cor_proc,
                                       args=(traj,
-                                            winLen,
+                                            win_len,
                                             psi,
                                             phi,
-                                            numDims,
+                                            num_dims,
                                             self.kNeighb,
                                             data_queue, results_queue)
                                       )

@@ -1,6 +1,7 @@
 import pytest
 import numpy as np
 from dynetan.toolkit import getNodeFromSel
+import dynetan.gencor as gc
 
 
 @pytest.mark.xfail(raises=AssertionError)
@@ -56,6 +57,81 @@ def test_calc_cor_force_calc(dnap_omp_loaded, ncores):
     for i in range(2):
         # No longer connected
         assert 0 == dnap_omp_loaded.corrMatAll[i, nodes[0], node_in_contact]
+
+
+def test_calc_cor_par(dnap_omp_loaded):
+    """
+    This function mimics the beginning of `calcCor` to test the parallel methods
+    used in parallel correlation calculation.
+    """
+    import queue
+    import multiprocessing as mp
+
+    # For 3D atom position data
+    num_dims = 3
+    n_frames = dnap_omp_loaded.workU.trajectory.n_frames
+    n_winds  = dnap_omp_loaded.numWinds
+    n_nodes  = dnap_omp_loaded.numNodes
+
+    # Find nodes for OMP
+    nodes = getNodeFromSel("resname OMP",
+                           dnap_omp_loaded.nodesAtmSel,
+                           dnap_omp_loaded.atomToNode)
+
+    # CHANGE CONNECTIVITY (ADD OMP P-N1 CONTACT)
+    for i in range(2):
+        dnap_omp_loaded.contactMatAll[i, nodes[0], nodes[1]] = 1
+        dnap_omp_loaded.contactMatAll[i, nodes[1], nodes[0]] = 1
+
+    win_indx = 0
+
+    win_len = int(np.floor(n_frames/n_winds))
+    beg = int(win_indx * win_len)
+    end = int((win_indx + 1) * win_len)
+
+    # Initialize the correlation matrix with zeros
+    dnap_omp_loaded.corrMatAll = np.zeros([n_winds, n_nodes, n_nodes],
+                                          dtype=np.float64)
+
+    traj: np.ndarray = np.ndarray([n_nodes, num_dims, win_len], dtype=np.float64)
+    traj.fill(0)
+
+    psi, phi = dnap_omp_loaded._prep_phi_psi(win_len)
+
+    pair_array = dnap_omp_loaded._create_pair_list(win_indx=win_indx)
+
+    gc.prep_mi_c(dnap_omp_loaded.workU, traj, beg, end, n_nodes, num_dims)
+
+    # Create queues that feed processes with node pairs, and gather results.
+    data_queue: queue.Queue = mp.Queue()
+    results_queue: queue.Queue = mp.Queue()
+
+    # Loads the node pairs in the input queue
+    for atmList in pair_array:
+        data_queue.put(atmList)
+    data_queue.put([])
+
+    gc.calc_cor_proc(traj,
+                     win_len,
+                     psi,
+                     phi,
+                     num_dims,
+                     dnap_omp_loaded.kNeighb,
+                     data_queue, results_queue)
+
+    # Gathers all results.
+    for _ in range(len(pair_array)):
+        result = results_queue.get()
+
+        node1 = result[0][0]
+        node2 = result[0][1]
+        corr = gc.mir_to_corr(result[1])
+
+        dnap_omp_loaded.corrMatAll[win_indx, node1, node2] = corr
+        dnap_omp_loaded.corrMatAll[win_indx, node2, node1] = corr
+
+    # We only calculate correlations for window 0 in this test
+    assert 0.2500220177999451 == dnap_omp_loaded.corrMatAll[0, nodes[0], nodes[1]]
 
 
 @pytest.mark.parametrize(("ncores", "force", "counts"), [
