@@ -59,6 +59,58 @@ class TestGraph:
 
         dnap.getDegreeDict(window)
 
+    def test_calc_opt_path_par_func(self, dnap_omp):
+        """
+        This test will mimic the `calcOptPaths` method and test the function used
+        to calculate optimal paths in parallel.
+        """
+        import copy
+        import queue
+        import numpy as np
+        import multiprocessing as mp
+        from dynetan import network as nw
+        from dynetan.toolkit import getNodeFromSel, getPath
+
+        dnap = load_sys_solv_mode(dnap_omp, False, "all")
+        dnap.calcGraphInfo()
+
+        dnap.distsAll = np.zeros([dnap.numWinds, dnap.numNodes, dnap.numNodes],
+                                 dtype=np.float64)
+        dnap.preds = {}
+        for i in range(dnap.numWinds):
+            dnap.preds[i] = 0
+
+        inQueue: queue.Queue = mp.Queue()
+        outQueue: queue.Queue = mp.Queue()
+
+        for win in range(dnap.numWinds):
+            inQueue.put(win)
+        inQueue.put(-1)
+
+        nw.calcOptPathPar(dnap.nxGraphs, inQueue, outQueue)
+
+        for _ in range(dnap.numWinds):
+            result = outQueue.get()
+            dnap.distsAll[result[0], :, :] = np.copy(result[1])
+            dnap.preds[result[0]] = copy.deepcopy(result[2])
+
+        trgtNodes = getNodeFromSel("segid " + self.ligandSegID,
+                                   dnap.nodesAtmSel,
+                                   dnap.atomToNode)
+
+        enzNode = getNodeFromSel("segid ENZY and resname GLU and resid 115",
+                                 dnap.nodesAtmSel,
+                                 dnap.atomToNode)
+
+        # For window 0
+        ref_list = [104, 74, 76, 58, 85, 216]
+
+        # First using the toolkit function
+        opt_path = getPath(trgtNodes[1], enzNode[0],
+                           dnap.nodesAtmSel, dnap.preds, 0)
+
+        assert list(opt_path) == ref_list
+
     @pytest.mark.parametrize(
         "num_cores", [
             pytest.param(1, ),
@@ -129,6 +181,46 @@ class TestGraph:
         opt_path = getPath(trgtNodes[0], trgtNodes[1],
                            dnap.nodesAtmSel, dnap.preds, 0)
         assert len(opt_path) == 0
+
+    def test_calc_betweens_par_func(self, dnap_omp):
+        """
+        This test will mimic the `calcBetween` method and test the function used
+        to calculate betweenness in parallel.
+        """
+        from itertools import islice
+        import copy
+        import queue
+        import multiprocessing as mp
+        from dynetan import network as nw
+
+        dnap = load_sys_solv_mode(dnap_omp, False, "all")
+        dnap.calcGraphInfo()
+
+        dnap.btws = {}
+
+        inQueue: queue.Queue = mp.Queue()
+        outQueue: queue.Queue = mp.Queue()
+
+        for win in range(dnap.numWinds):
+            inQueue.put(win)
+        inQueue.put(-1)
+
+        nw.calcBetweenPar(dnap.nxGraphs, inQueue, outQueue)
+
+        for _ in range(dnap.numWinds):
+            result = outQueue.get()
+            dnap.btws[result[0]] = copy.deepcopy(result[1])
+
+        # For window 0
+        # (32, 57) 0.05792 0.13400926315561176
+        for node_pair, betweenness in islice(dnap.btws[0].items(), 1):
+            node_i = node_pair[0]
+            node_j = node_pair[1]
+            btw = round(betweenness, 5)
+
+            assert node_i == 32
+            assert node_j == 57
+            assert btw == 0.05792
 
     @pytest.mark.parametrize(
         "num_cores", [
