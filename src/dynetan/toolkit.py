@@ -308,7 +308,7 @@ def formatNodeGroups(atmGrp: mda.AtomGroup,
                 resName, nodeAtmStr, set(grpAtmStr)))
 
 
-def show_node_grps(nv_view: Any,
+def showNodeGroups(nv_view: Any,
                    atm_grp: mda.AtomGroup,
                    usr_node_groups: dict,
                    node_atm_sel: str = "") -> None:
