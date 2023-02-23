@@ -159,43 +159,6 @@ def viewPath(nvView: Any,
                                   lazy=True)
 
 
-def showCommunity(nvView: Any,
-                  commID: int,
-                  window: int,
-                  dnad: ds.DNAdata,
-                  colorValDict: Any) -> None:
-    """Creates NGLView representation of a specified community.
-
-    Renders a series of cylinders to represent all edges in the network that
-    connect nodes in the same community. Edges between nodes in different
-    communities are not rendered.
-    We expect the `nodeCommDF` data frame to contain community data for node IDs
-    in every analyzed simulation window.
-
-    Args:
-        nvView (obj) : NGLView object.
-        commID (float): Community ID for the community to be rendered.
-        window (int) : Window used for representation.
-        dnad (obj) : Dynamical Network Analysis data object.
-        colorValDict (obj) : Dictionary that standardizes community colors.
-
-    """
-
-    # Gets the list of all connected pairs in the system
-    connectedPairs = np.asarray(np.where(dnad.corrMatAll[window, :, :] > 0)).T
-    nonzeroPairs = [(i, j) for i, j in connectedPairs if i < j]
-
-    for i, j in nonzeroPairs:
-        commI = dnad.nxGraphs[window].nodes[i]["modularity"]
-        commJ = dnad.nxGraphs[window].nodes[j]["modularity"]
-
-        # If the pair of nodes is in the same community, render the edge.
-        if commID == commI == commJ:
-            viewPath(nvView, [i, j], dnad.distsAll, dnad.maxDirectDist,
-                     dnad.nodesAtmSel, win=window, opacity=1,
-                     color=colorValDict[commID])
-
-
 def showCommunityGlobal(nvView: Any,
                         nodeCommDF: pd.DataFrame,
                         commID: int,
