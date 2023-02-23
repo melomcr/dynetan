@@ -59,7 +59,7 @@ class DNAdata:
         self.nodesAtmSel: mda.AtomGroup
         self.numWinds: int = 0
 
-    def save_to_file(self, file_name_root: str) -> None:
+    def saveToFile(self, file_name_root: str) -> None:
         """Function that saves all the data stored in a DNAdata object.
 
         Args:
@@ -141,7 +141,7 @@ class DNAdata:
 
         np.save(file_name_root + "_nodesComm.npy", self.nodesComm)
 
-    def load_from_file(self, file_name_root: str) -> None:
+    def loadFromFile(self, file_name_root: str) -> None:
         """Function that loads all the data stored in a DNAdata object.
 
         Args:

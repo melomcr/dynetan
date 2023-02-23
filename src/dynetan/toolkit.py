@@ -181,9 +181,9 @@ def getLinIndexC(src: int, trgt: int, dim: int) -> int:
 
     """
 
-    assert isinstance(src, int)
-    assert isinstance(trgt, int)
-    assert isinstance(dim, int)
+    assert isinstance(src, (int, numpy.integer))
+    assert isinstance(trgt, (int, numpy.integer))
+    assert isinstance(dim, (int, numpy.integer))
 
     assert src >= 0
     assert trgt >= 0
@@ -219,9 +219,9 @@ def getCartDist(src: int,
 
     """
 
-    assert isinstance(src, int)
-    assert isinstance(trgt, int)
-    assert isinstance(numNodes, int)
+    assert isinstance(src, (int, numpy.integer))
+    assert isinstance(trgt, (int, numpy.integer))
+    assert isinstance(numNodes, (int, numpy.integer))
 
     assert src >= 0
     assert trgt >= 0
