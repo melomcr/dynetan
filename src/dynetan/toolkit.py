@@ -29,7 +29,7 @@ def getNGLSelFromNode(nodeIndx: int, atomsel: mda.AtomGroup, atom: bool = True) 
     Arguments:
         nodeIndx (int):
             Index of network node.
-        atomsel (obj):
+        atomsel (Any):
             MDAnalysis atom-selection object.
         atom (bool):
             Determines if the selection should cover the entire residue, or just
@@ -57,13 +57,13 @@ def getNodeFromSel(selection: str,
     Arguments:
         selection (str):
             MDAnalysis atom selection string.
-        atmsel (obj):
+        atmsel (Any):
             MDAnalysis atom-selection object.
-        atm_to_node (obj):
+        atm_to_node (Any):
             Dynamic Network Analysis atom-to-node mapping object.
 
     Returns:
-        indices (array) : List of node indices mapped to the provided atom selection.
+        numpy.ndarray : List of node indices mapped to the provided atom selection.
 
     """
 
@@ -85,7 +85,7 @@ def getSelFromNode(nodeIndx: int,
     Arguments:
         nodeIndx (int):
             Index of network node.
-        atomsel (obj):
+        atomsel (Any):
             MDAnalysis atom-selection object.
         atom (bool):
             Determines if the selection should cover the entire residue, or
@@ -127,13 +127,13 @@ def getPath(src: int,
     Args:
         src (int): Source node.
         trg (int): Target node.
-        nodesAtmSel (obj): MDAnalysis atom-selection object.
+        nodesAtmSel (Any): MDAnalysis atom-selection object.
         preds (dict): Predecessor data in dictionary format.
         win (int): Selects the simulation window used to create optimal paths.
 
     Returns:
-        np.array: A NumPy array with the list of nodes or an empty list in case
-        no optimal path could be found.
+        numpy.ndarray: A NumPy array with the list of nodes or an empty list in case
+            no optimal path could be found.
 
     """
 
@@ -256,7 +256,7 @@ def formatNodeGroups(atmGrp: mda.AtomGroup,
     `grpAtmStrL` to define each node group.
 
     Args:
-        atmGrp (MDAnalysis atom group object): Atom group with one residue.
+        atmGrp (Any): MDAnalysis atom group object with one residue.
         nodeAtmStrL (list): Strings defining atoms that will represent nodes.
         grpAtmStrL (list|None): Lists containing atoms that belong to each node group.
             If None, all atoms in the residue will be added to the same node group.
@@ -319,8 +319,8 @@ def showNodeGroups(nv_view: Any,
     of atoms and nodes.
 
     Args:
-        nv_view (obj): The initialized NGLview object.
-        atm_grp (obj): The MDanalysis atom group object containing
+        nv_view (Any): The initialized NGLview object.
+        atm_grp (Any): The MDanalysis atom group object containing
             one residue.
         usr_node_groups (dict): A dictionary of dictionaries with node groups for
             a given residue.

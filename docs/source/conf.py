@@ -13,8 +13,7 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('../../src'))
-#sys.path.insert(0, os.path.abspath('../../dynetan/'))
-#sys.path.insert(0, os.path.abspath('../../dynetan/dynetan/'))
+# sys.path.insert(0, os.path.abspath('../../src/dynetan/'))
 
 #import dynetan
 
@@ -36,7 +35,29 @@ author = 'Marcelo C. R. Melo ; Rafael C. Bernardi'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['recommonmark', 'sphinx.ext.autodoc', 'sphinx.ext.napoleon']
+extensions = ['myst_parser', 'sphinx.ext.autodoc', 'sphinx.ext.napoleon',
+              'sphinx_rtd_theme']
+
+source_suffix = {
+    '.rst': 'restructuredtext',
+    '.txt': 'markdown',
+    '.md': 'markdown',
+}
+
+autodoc_typehints = "description"
+
+nitpicky = True
+nitpick_ignore = [
+    ('py:class', 'MDAnalysis.AtomGroup'),
+    ('py:class', 'pandas.DataFrame'),
+    ('py:class', 'networkx.Graph'),
+    ('py:class', 'numpy.ndarray'),
+    ('py:class', 'numpy.typing.NDArray.numpy.int64'),
+    ('py:class', 'numpy.typing.NDArray.numpy.float64'),
+    ('py:class', 'multiprocessing.context.BaseContext.Queue'),
+    ('py:class', 'Queue'),
+]
+
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -48,10 +69,11 @@ exclude_patterns = []
 
 #autodoc_default_options = {'imported-members': True}
 
-# This helps speed up the doc compilation time by avoiding the loading 
+# This helps speed up the doc compilation time by avoiding the loading
 #   of multiple dependency packages.
 autodoc_mock_imports = ["numpy","np","cython","MDAnalysis","mda","multiprocessing","mp",
-                        "networkx","nx","community","colorama", "operator", "collections",
+                        "networkx","nx","pandas","pd",
+                        "community","colorama", "operator", "collections",
                         "pickle", "h5py","numba",
                         "MDAnalysis.lib.NeighborSearch",
                         "MDAnalysis.coordinates.memory",

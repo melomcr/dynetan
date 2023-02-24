@@ -152,8 +152,8 @@ def test_calc_cartesian_verb(dnap_omp, capfd, solv, mode, nodes_atms):
     test_str = "Time for contact calculation:"
     assert test_str in captured.out
 
-    test_str = "running atmToNodeDist"
+    test_str = "running atm_to_node_dist"
     assert test_str in captured.out
 
-    test_str = "Time for atmToNodeDist:"
+    test_str = "Time for atm_to_node_dist:"
     assert test_str in captured.out

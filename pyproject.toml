@@ -37,6 +37,7 @@ classifiers = [
 [project.urls]
 "Homepage" = "https://github.com/melomcr/dynetan"
 "Bug Tracker" = "https://github.com/melomcr/dynetan/issues"
+"Documentation" = "https://dynamical-network-analysis.readthedocs.io"
 
 [tool.hatch.version]
 path = "src/dynetan/version.py"

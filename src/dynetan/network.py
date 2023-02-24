@@ -29,9 +29,9 @@ def calcOptPathPar(nx_graphs: List[nx.Graph],
     array per window of trajectory, which allows significant speed up in data analysis.
 
     Args:
-        nx_graphs (NetworkX graph) : NetworkX graph object.
-        in_queue (queue) : Multiprocessing queue object for acquiring jobs.
-        out_queue (queue) : Multiprocessing queue object for placing results.
+        nx_graphs (Any) : NetworkX graph object.
+        in_queue (Queue) : Multiprocessing queue object for acquiring jobs.
+        out_queue (Queue) : Multiprocessing queue object for placing results.
 
     """
 
@@ -78,9 +78,9 @@ def calcBetweenPar(nx_graphs: List[nx.Graph],
     of node pairs with betweenness higher than zero.
 
     Args:
-        nx_graphs (NetworkX graph) : NetworkX graph object.
-        in_queue (queue) : Multiprocessing queue object for acquiring jobs.
-        out_queue (queue) : Multiprocessing queue object for placing results.
+        nx_graphs (Any) : NetworkX graph object.
+        in_queue (Queue) : Multiprocessing queue object for acquiring jobs.
+        out_queue (Queue) : Multiprocessing queue object for placing results.
 
     """
 

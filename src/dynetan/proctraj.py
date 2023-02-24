@@ -5,7 +5,6 @@ import MDAnalysis
 # @author: melomcr
 
 
-# from . import toolkit as tk
 from . import gencor as gc
 from . import contact as ct
 from . import network as nw
@@ -13,8 +12,6 @@ from . import datastorage as ds
 
 import numpy as np
 import numpy.typing as npt
-
-# import cython
 
 import MDAnalysis as mda
 
@@ -32,7 +29,6 @@ from networkx.algorithms.shortest_paths.dense import \
 from MDAnalysis.lib.NeighborSearch import AtomNeighborSearch as mdaANS
 from MDAnalysis.coordinates.memory import MemoryReader as mdaMemRead
 from MDAnalysis.analysis.base import AnalysisFromFunction as mdaAFF
-# from MDAnalysis.analysis            import distances            as mdadist
 from MDAnalysis.analysis.distances import between as mdaB
 
 from colorama import Fore
@@ -41,7 +37,6 @@ from collections import OrderedDict
 from collections import defaultdict
 import queue  # So that we can catch the exceptions for empty queues
 
-# import os
 import copy
 
 # For timing and benchmarks
@@ -269,14 +264,15 @@ class DNAproc:
         """Set atoms that will represent nodes in user defined residues.
 
         .. note:: THIS METHOD HAS BEEN DEPRECATED. It has been fully replaced
-            by :py:func:`setUsrNodeGroups`.
+            by :py:func:`setNodeGroups`.
 
         Args:
-            customResNodes (dictionary) : Dictionary mapping residue names with
+            customResNodes (dict) : Dictionary mapping residue names with
                 lists of atom names that will represent network nodes.
 
         """
-        print("### The method `setCustomResNodes` is now deprecated.")
+        print("### The method `setCustomResNodes` is now deprecated and "
+              "replaced with the `setNodeGroups` method.")
         raise DeprecationWarning
 
     def setNodeGroups(self, node_groups: dict[str, dict[str, set[str]]]) -> None:
@@ -289,7 +285,7 @@ class DNAproc:
         group for user-defined nodes.
 
         Args:
-            node_groups (dictionary) : Nested dictionary mapping residue names
+            node_groups (dict) : Nested dictionary mapping residue names
                 with atom names that will represent network nodes, and sets of
                 heavy atoms used to define node groups.
 
@@ -427,9 +423,9 @@ class DNAproc:
         Loads Structure and Trajectory files to an MDAnalysis universe.
 
         Args:
-            str_fn (str | Path) : Path to structure file, such as a PSF, PDB,
+            str_fn (str) : Path to structure file, such as a PSF, PDB,
                 Gro, or other file formats accepted by MDAnalysis.
-            traj_fns (str | Path | List(str) ) : Path to one or more trajectory
+            traj_fns (str | List(str) ) : Path to one or more trajectory
                 files. MDAnalysis will automatically concatenate trajectories if
                 multiple files are passed.
 
@@ -1573,9 +1569,9 @@ class DNAproc:
         in allocates the necessary NumPy arrays for accelerated
         performance of MDAnalysis algorithms.
 
-        .. note:: See also :py:func:`~dynetan.gencor.prepMIc`.
-        .. note:: See also :py:func:`~dynetan.gencor.calcMIRnumba2var`.
-        .. note:: See also :py:func:`~dynetan.gencor.calcCorProc`.
+        .. note:: See also :py:func:`~dynetan.gencor.prep_mi_c`.
+        .. note:: See also :py:func:`~dynetan.gencor.calc_mir_numba_2var`.
+        .. note:: See also :py:func:`~dynetan.gencor.calc_cor_proc`.
 
         Args:
             ncores (int) : Defines how many cores will be used for
@@ -1744,7 +1740,7 @@ class DNAproc:
         standard error of the mean, minimum, and maximum.
         This allows analysis comparing network distances and cartesian distances.
 
-        .. note:: See also :py:func:`~dynetan.contact.calcDistances`
+        .. note:: See also :py:func:`~dynetan.contact.calc_distances`
             and :py:func:`~dynetan.toolkit.getCartDist`.
 
         Args:

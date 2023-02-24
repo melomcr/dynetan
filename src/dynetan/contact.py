@@ -74,15 +74,15 @@ def atm_to_node_dist(num_nodes: int,
         n_atoms (int) : Number of atoms in atom groups represented by system nodes.
             Usually hydrogen atoms are not included in contact detection, and
             are not present in atom groups.
-        tmp_dists (obj) : Temporary pre-allocated NumPy array with atom distances.
+        tmp_dists (Any) : Temporary pre-allocated NumPy array with atom distances.
             This is the result of MDAnalysis `self_distance_array` calculation.
-        atom_to_node (obj) : NumPy array that maps atoms in atom groups to their
+        atom_to_node (Any) : NumPy array that maps atoms in atom groups to their
             respective nodes.
-        node_group_indices_np (obj) : NumPy array with atom indices for all atoms
+        node_group_indices_np (Any) : NumPy array with atom indices for all atoms
             in each node group.
-        node_group_indices_np_aux (obj) : Auxiliary NumPy array with the indices of
+        node_group_indices_np_aux (Any) : Auxiliary NumPy array with the indices of
             the first atom in each atom group, as listed in `nodeGroupIndicesNP`.
-        node_dists (obj) : Pre-allocated array to store cartesian distances
+        node_dists (Any) : Pre-allocated array to store cartesian distances
             between *nodes*. This is a linearized upper triangular matrix.
 
     """
@@ -152,11 +152,11 @@ def calc_distances(selection: mda.AtomGroup,
     This function is a wrapper for two optimized atomic distance calculation
     and node distance calculation calls. The first is one of MDAnalysis' atom
     distance calculation functions (either `self_distance_array` or
-    `self_capped_distance`). The second is the internal :py:func:`atmToNodeDist`.
+    `self_capped_distance`). The second is the internal :py:func:`atm_to_node_dist`.
     All results are stored in pre-allocated NumPy arrays.
 
     This is intended as an analysis tool to allow the comparison of network
-    distances and cartesian distances. It is similar to :py:func:`getContactsC`,
+    distances and cartesian distances. It is similar to :py:func:`get_contacts_c`,
     which is optimized for contact detection.
 
     Args:
@@ -165,14 +165,14 @@ def calc_distances(selection: mda.AtomGroup,
         n_atoms (int) : Number of atoms in atom groups represented by system nodes.
             Usually hydrogen atoms are not included in contact detection,
             and are not present in atom groups.
-        atom_to_node (obj) : NumPy array that maps atoms in atom groups to their
+        atom_to_node (Any) : NumPy array that maps atoms in atom groups to their
             respective nodes.
         cutoff_dist (float): Distance cutoff used to capp distance calculations.
-        node_group_indices_np (obj) : NumPy array with atom indices for all atoms
+        node_group_indices_np (Any) : NumPy array with atom indices for all atoms
             in each node group.
-        node_group_indices_np_aux (obj) : Auxiliary NumPy array with the indices of
+        node_group_indices_np_aux (Any) : Auxiliary NumPy array with the indices of
             the first atom in each atom group, as listed in `nodeGroupIndicesNP`.
-        node_dists (obj) : Pre-allocated array to store cartesian distances.
+        node_dists (Any) : Pre-allocated array to store cartesian distances.
         backend (str) : Controls how MDAnalysis will perform its distance
             calculations. Options are  `serial` and `openmp`. This option is
             ignored if the distance mode is not "all".
@@ -268,7 +268,7 @@ def calc_distances(selection: mda.AtomGroup,
             print("Time for loading distances:", timedelta(seconds=end-start))
 
     if verbose > 1:
-        print("running atmToNodeDist...")
+        print("running atm_to_node_dist...")
         start = timer()
 
     # Translate atoms distances in minimum node distance.
@@ -282,7 +282,7 @@ def calc_distances(selection: mda.AtomGroup,
 
     if verbose > 1:
         end = timer()
-        print("Time for atmToNodeDist:", timedelta(seconds=end-start))
+        print("Time for atm_to_node_dist:", timedelta(seconds=end-start))
 
 
 @cython.cfunc
@@ -352,17 +352,17 @@ def calc_contact_c(num_nodes: int,
             are not present in atom groups.
         cutoff_dist (float) : Distance at which atoms are no longer considered
             'in contact'.
-        tmp_dists (obj) : Temporary pre-allocated NumPy array with atom distances.
+        tmp_dists (Any) : Temporary pre-allocated NumPy array with atom distances.
             This is the result of MDAnalysis `self_distance_array` calculation.
-        tmp_dists_atms (obj) : Temporary pre-allocated NumPy array to store the
+        tmp_dists_atms (Any) : Temporary pre-allocated NumPy array to store the
             shortest distance between atoms in different nodes.
-        contact_mat (obj) : Pre-allocated NumPy matrix where node contacts will
+        contact_mat (Any) : Pre-allocated NumPy matrix where node contacts will
             be stored.
-        atom_to_node (obj) : NumPy array that maps atoms in atom groups to their
+        atom_to_node (Any) : NumPy array that maps atoms in atom groups to their
             respective nodes.
-        node_group_indices_np (obj) : NumPy array with atom indices for all atoms
+        node_group_indices_np (Any) : NumPy array with atom indices for all atoms
             in each node group.
-        node_group_indices_np_aux (obj) : Auxiliary NumPy array with the indices of
+        node_group_indices_np_aux (Any) : Auxiliary NumPy array with the indices of
             the first atom in each atom group, as listed in `nodeGroupIndicesNP`.
 
     """
@@ -448,17 +448,17 @@ def get_contacts_c(selection: mda.AtomGroup,
                 are not present in atom groups.
         cutoff_dist (float) : Distance at which atoms are no longer
             considered 'in contact'.
-        tmp_dists (obj) : Temporary pre-allocated NumPy array with atom distances.
+        tmp_dists (Any) : Temporary pre-allocated NumPy array with atom distances.
             This is the result of MDAnalysis `self_distance_array` calculation.
-        tmp_dists_atms (obj) : Temporary pre-allocated NumPy array to store the
+        tmp_dists_atms (Any) : Temporary pre-allocated NumPy array to store the
             shortest distance between atoms in different nodes.
-        contact_mat (obj) : Pre-allocated NumPy matrix where node contacts will
+        contact_mat (Any) : Pre-allocated NumPy matrix where node contacts will
             be stored.
-        atom_to_node (obj) : NumPy array that maps atoms in atom groups to their
+        atom_to_node (Any) : NumPy array that maps atoms in atom groups to their
             respective nodes.
-        node_group_indices_np (obj) : NumPy array with atom indices for all atoms
+        node_group_indices_np (Any) : NumPy array with atom indices for all atoms
             in each node group.
-        node_group_indices_np_aux (obj) : Auxiliary NumPy array with the indices of
+        node_group_indices_np_aux (Any) : Auxiliary NumPy array with the indices of
             the first atom in each atom group, as listed in `nodeGroupIndicesNP`.
         dist_mode: Method for distance calculation in MDAnalysis (all or capped).
 

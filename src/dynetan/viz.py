@@ -19,7 +19,7 @@ def getCommunityColors() -> pd.DataFrame:
 
     Returns:
         Returns a pandas dataframe with a VMD-compatible color scale for node
-        communities.
+            communities.
 
     """
 
@@ -48,15 +48,15 @@ def prepTclViz(base_name: str, num_winds: int, ligand_segid: str = "NULL",
     """Prepares system-specific TCL script vor visualization.
 
     This function prepares a TCL script that can be loaded by
-    `VMD <http://www.ks.uiuc.edu/Research/vmd/>`_ to create high-resolution
+    `VMD <https://www.ks.uiuc.edu/Research/vmd/>`_ to create high-resolution
     renderings of the system.
 
     Args:
         base_name (str): Base name for TCL script and data files necessary for
-        visualization.
+            visualization.
         num_winds (int) : Number of windows created for analysis.
         ligand_segid (str) : Segment ID of ligand residue. This will create
-        special representations for small molecules.
+            a special representations for small molecules.
         trg_dir (str) : Directory where TCL and data files will be saved.
 
     """
@@ -115,13 +115,13 @@ def viewPath(nvView: Any,
     The maxDirectDist argument is used as a normalization factor to scale
     representations of edges.
     For more details on NGL parameters, see
-    `NGLView's documentation <http://nglviewer.org/nglview/latest/api.html>`_.
+    `NGLView's documentation <https://nglviewer.org/nglview/latest/api.html>`_.
 
     Args:
-        nvView (obj) : NGLView object.
+        nvView (Any) : NGLView object.
         path (list) : Sequence of nodes that define a path.
         maxDirectDist (float): Maximum direct distance between nodes in network.
-        nodesAtmSel (obj) : MDAnalysis atom selection object.
+        nodesAtmSel (Any) : MDAnalysis atom selection object.
         win (int) : Window used for representation.
         opacity (float) : Controls edge opacity.
         color (str) : Controls edge color.
@@ -168,23 +168,19 @@ def showCommunityGlobal(nvView: Any,
                         colorValDict: Any) -> None:
     """Creates NGLView representation of a specified community.
 
-    This is a variation of :py:func:`showCommunity` created for reducing the
-    quality and therefore the cost of creating edge representations. It is
-    particularly useful in very large systems.
-
     Renders a series of cylinders to represent all edges in the network that
     connect nodes in the same community. Edges between nodes in different
     communities are not rendered.
 
     Args:
-        nvView (obj) : NGLView object.
-        nodeCommDF (obj) : Pandas data frame relating node IDs with their
+        nvView (Any) : NGLView object.
+        nodeCommDF (Any) : Pandas data frame relating node IDs with their
             communities.
         commID (float): Community ID for the community to be rendered.
         window (int) : Window used for representation.
-        nodesAtmSel (obj) : MDAnalysis atom selection object.
-        dnad (obj) : Dynamical Network Analysis data object.
-        colorValDict (obj) : Dictionary that standardizes community colors.
+        nodesAtmSel (Any) : MDAnalysis atom selection object.
+        dnad (Any) : Dynamical Network Analysis data object.
+        colorValDict (Any) : Dictionary that standardizes community colors.
 
     """
 
@@ -238,14 +234,14 @@ def showCommunityByTarget(nvView: Any,
     different representations.
 
     Args:
-        nvView (obj) : NGLView object.
-        nodeCommDF (obj) : Pandas data frame relating node IDs with their
+        nvView (Any) : NGLView object.
+        nodeCommDF (Any) : Pandas data frame relating node IDs with their
             communities.
         trgtNodes (list): List of node IDs.
         window (int) : Window used for representation.
-        nodesAtmSel (obj) : MDAnalysis atom selection object.
-        dnad (obj) : Dynamical Network Analysis data object.
-        colorValDict (obj) : Dictionary that standardizes community colors.
+        nodesAtmSel (Any) : MDAnalysis atom selection object.
+        dnad (Any) : Dynamical Network Analysis data object.
+        colorValDict (Any) : Dictionary that standardizes community colors.
 
     """
 
@@ -303,15 +299,15 @@ def showCommunityByID(nvView: Any,
     For examples of formatted data, see Dynamical Network Analysis tutorial.
 
     Args:
-        nvView (obj) : NGLView object.
-        cDF (obj) : Pandas data frame relating node IDs with their communities in
+        nvView (Any) : NGLView object.
+        cDF (Any) : Pandas data frame relating node IDs with their communities in
                     every analyzed simulation window. This requires a melt format.
         clusID (float) : ID of the community (or cluster) to be rendered.
         system (str) : System used as reference to standardize representation.
         refWindow (int) : Window used as reference to standardize representation.
-        shapeCounter (obj) : Auxiliary list to manipulate NGLView representations.
-        nodesAtmSel (obj) : MDAnalysis atom selection object.
-        colorValDictRGB (obj) : Dictionary that standardizes community colors.
+        shapeCounter (Any) : Auxiliary list to manipulate NGLView representations.
+        nodesAtmSel (Any) : MDAnalysis atom selection object.
+        colorValDictRGB (Any) : Dictionary that standardizes community colors.
         trg_system (str) : System to be used for rendering.
         trg_window (int) : Window used for rendering.
 
@@ -350,15 +346,15 @@ def showCommunityByNodes(nvView: Any,
     Renders a series of spheres to represent all nodes in the selected community.
 
     Args:
-        nvView (obj) : NGLView object.
-        cDF (obj) : Pandas data frame relating node IDs with their communities in
+        nvView (Any) : NGLView object.
+        cDF (Any) : Pandas data frame relating node IDs with their communities in
                     every analyzed simulation window. This requires a melt format.
         nodeList (list) : List of node IDs to be rendered.
         system (str) : System used as reference to standardize representation.
         refWindow (int) : Window used as reference to standardize representation.
-        shapeCounter (obj) : Auxiliary list to manipulate NGLView representations.
-        nodesAtmSel (obj) : MDAnalysis atom selection object.
-        colorValDictRGB (obj) : Dictionary that standardizes community colors.
+        shapeCounter (Any) : Auxiliary list to manipulate NGLView representations.
+        nodesAtmSel (Any) : MDAnalysis atom selection object.
+        colorValDictRGB (Any) : Dictionary that standardizes community colors.
 
     """
 

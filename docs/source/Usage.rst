@@ -14,7 +14,7 @@ using the OMP decarboxylase example that was examined in the reference
 publication (see :ref:`Citing <Citing>`) and the associated
 :ref:`Tutorial <Tutorial>`.
 
-Load your simulation data by creating a :py:class:`~dynetan.proctraj.DNAproc`object::
+Load your simulation data by creating a :py:class:`~dynetan.proctraj.DNAproc` object::
 
     # Load the python package
     import os

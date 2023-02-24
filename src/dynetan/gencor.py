@@ -33,12 +33,12 @@ def stand_vars_c(traj: npt.NDArray[np.float64], num_nodes: int, num_dims: int) -
     variable-dimension-step format (or "atom by x/y/z by frame" for molecular
     dynamics data).
 
-    .. note:: Please refer to :py:func:`prepMIc` for details about the data
+    .. note:: Please refer to :py:func:`prep_mi_c` for details about the data
         conversion process. Please refer to :py:func:`calc_mir_numba_2var` for details
         about the calculation of mutual information coefficients.
 
     Args:
-        traj (obj): NumPy array with trajectory information.
+        traj (Any): NumPy array with trajectory information.
         num_nodes (int): Number of nodes in the network.
         num_dims (int): Number of dimensions in trajectory data
             (usually 3 dimensions, for X,Y,Z coordinates).
@@ -83,14 +83,14 @@ def prep_mi_c(universe: MDAnalysis.Universe,
     This function also calls a dedicated function to standardize the atom
     position data, also necessary for mutual information estimation.
 
-    .. note:: Please refer to :py:func:`standVarsC` for details about the data
+    .. note:: Please refer to :py:func:`stand_vars_c` for details about the data
         standardization process. Please refer to :py:func:`calc_mir_numba_2var` for
         details about the calculation of mutual information coefficients.
 
     Args:
-        universe (obj): MDAnalysis universe object containing all
+        universe (Any): MDAnalysis universe object containing all
             trajectory information.
-        traj (obj): NumPy array where trajectory information will be stored.
+        traj (Any): NumPy array where trajectory information will be stored.
         beg (int): Initial trajectory frame to be used for analysis.
         end (int): Final trajectory frame to be used for analysis.
         num_nodes (int): Number of nodes in the network.
@@ -129,16 +129,18 @@ def calc_mir_numba_2var(traj: npt.NDArray[np.float64],
     (in this case, positions of two atoms) is provided in a
     variable-dimension-step format (or "atom by x/y/z by frame" for molecular
     dynamics data). It also assumes that all trajectory data has been
-    standardized (see :py:func:`standVarsC`).
+    standardized (see :py:func:`stand_vars_c`).
 
     Args:
-        traj (obj): NumPy array with trajectory information.
+        traj (Any): NumPy array with trajectory information.
         num_frames (int): Number of trajectory frames in the current window.
         num_dims (int): Number of dimensions in trajectory data
             (usually 3 dimensions, for X,Y,Z coordinates).
         k_neighb (int): Parameter used for mutual information estimation.
-        psi (np.array): Pre-calculated parameter used for mutual information estimation.
-        phi (np.array): Pre-calculated parameter used for mutual information estimation.
+        psi (numpy.ndarray): Pre-calculated parameter used for mutual
+            information estimation.
+        phi (numpy.ndarray): Pre-calculated parameter used for mutual
+            information estimation.
 
     """
 
@@ -226,15 +228,15 @@ def calc_cor_proc(traj: npt.NDArray[np.float64],
         calculation of mutual information coefficients.
 
     Args:
-        traj (obj): NumPy array with trajectory information.
+        traj (Any): NumPy array with trajectory information.
         win_len (int): Number of trajectory frames in the current window.
         psi (float): Pre-calculated parameter used for mutual information estimation.
         phi (float): Pre-calculated parameter used for mutual information estimation.
         num_dims (int): Number of dimensions in trajectory data
             (usually 3 dimensions, for X,Y,Z coordinates).
         k_neighb (int): Parameter used for mutual information estimation.
-        in_queue (obj) : Multiprocessing queue object for acquiring jobs.
-        out_queue (obj) : Multiprocessing queue object for placing results.
+        in_queue (Any) : Multiprocessing queue object for acquiring jobs.
+        out_queue (Any) : Multiprocessing queue object for placing results.
 
     """
 
