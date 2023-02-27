@@ -11,8 +11,7 @@ import MDAnalysis as mda
 from MDAnalysis.analysis import distances as mdadist
 from MDAnalysis.lib import distances as mdalibdist
 from numba import jit
-
-import cython
+from numba import prange
 
 # For timing and benchmarks
 from timeit import default_timer as timer
@@ -24,7 +23,7 @@ MODE_ALL    = 0  # noqa:E221
 MODE_CAPPED = 1
 
 
-@jit('i8(i8, i8, i8)', nopython=True)
+@jit('i8(i8, i8, i8)', nopython=True, nogil=True, cache=True)
 def get_lin_index_numba(src: int, trgt: int, n: int) -> int:  # pragma: no cover
     """Conversion from 2D matrix indices to 1D triangular.
 
@@ -47,7 +46,7 @@ def get_lin_index_numba(src: int, trgt: int, n: int) -> int:  # pragma: no cover
     return int(k)
 
 
-@jit('void(i8, i8, f8[:], i8[:], i8[:], i8[:], f8[:])', nopython=True)
+@jit('void(i8, i8, f8[:], i8[:], i8[:], i8[:], f8[:])', nopython=True, parallel=True)
 def atm_to_node_dist(num_nodes: int,
                      n_atoms: int,
                      tmp_dists: npt.NDArray[np.float64],
@@ -120,7 +119,7 @@ def atm_to_node_dist(num_nodes: int,
                 tmp_dists[j1: jend],
                 tmp_dists_atms[next_i_first:])
 
-        for pairNode in range(i+1, num_nodes):
+        for pairNode in prange(i+1, num_nodes):
 
             # Access the shortest distances between atoms from "pairNode" and
             # the current node "i"
@@ -285,43 +284,8 @@ def calc_distances(selection: mda.AtomGroup,
         print("Time for atm_to_node_dist:", timedelta(seconds=end-start))
 
 
-@cython.cfunc
-@cython.returns(cython.int)
-@cython.locals(src=cython.int, trgt=cython.int, n=cython.int)
-@cython.boundscheck(False)  # turn off bounds-checking for entire function
-@cython.wraparound(False)  # turn off negative index wrapping for entire function
-def get_lin_index_c(src: int, trgt: int, n: int) -> int:
-    """Conversion from 2D matrix indices to 1D triangular.
-
-    Converts from 2D matrix indices to 1D (n*(n-1)/2) unwrapped triangular
-    matrix index. This version of the function is compiled using Cython.
-
-    Args:
-        src (int): Source node.
-        trgt (int): Target node.
-        n (int): Dimension of square matrix
-
-    Returns:
-        int: 1D index in unwrapped triangular matrix.
-
-    """
-
-    # https://stackoverflow.com/questions/27086195/linear-index-upper-triangular-matrix
-    k = (n*(n-1)/2) - (n-src)*((n-src)-1)/2 + trgt - src - 1.0
-    return int(k)
-
-
-@cython.cfunc
-@cython.returns(cython.void)
-@cython.locals(num_nodes=cython.int, n_atoms=cython.int, cutoff_dist=cython.float,
-               tmp_dists="np.ndarray[np.float_t, ndim=1]",
-               tmp_dists_atms="np.ndarray[np.float_t, ndim=1]",
-               contact_mat="np.ndarray[np.int_t, ndim=2]",
-               atom_to_node="np.ndarray[np.int_t, ndim=1]",
-               node_group_indices_np="np.ndarray[np.int_t, ndim=1]",
-               node_group_indices_np_aux="np.ndarray[np.int_t, ndim=1]")
-@cython.boundscheck(False)  # turn off bounds-checking for entire function
-@cython.wraparound(False)  # turn off negative index wrapping for entire function
+@jit('void(i8, i8, f8, f8[:], f8[:], i8[:,:], i8[:], i8[:], i8[:])',
+     nopython=True)
 def calc_contact_c(num_nodes: int,
                    n_atoms: int,
                    cutoff_dist: float,
@@ -330,10 +294,12 @@ def calc_contact_c(num_nodes: int,
                    contact_mat: npt.NDArray[np.int64],
                    atom_to_node: npt.NDArray[np.int64],
                    node_group_indices_np: npt.NDArray[np.int64],
-                   node_group_indices_np_aux: npt.NDArray[np.int64]) -> None:
+                   node_group_indices_np_aux: npt.NDArray[np.int64]) \
+        -> None:  # pragma: no cover
     """Translates MDAnalysis distance calculation to node contact matrix.
 
-    This function is Cython compiled to optimize the search for nodes in contact.
+    This function is JIT compiled with Numba to optimize the search for nodes
+    in contact.
     It relies on the results of MDAnalysis' `self_distance_array` calculation,
     stored in a 1D NumPy array of shape (n*(n-1)/2,), which acts as an unwrapped
     triangular matrix.
@@ -367,16 +333,6 @@ def calc_contact_c(num_nodes: int,
 
     """
 
-    next_i_first = cython.declare(cython.int)
-
-    # Cython types are evaluated as for cdef declarations
-    j1: cython.int
-    jend: cython.int
-    i: cython.int
-    node_i_k: cython.int
-    node_atm_indx: cython.int
-    node_atm_indx_next: cython.int
-
     # We iterate until we have only one node left
     for i in range(num_nodes - 1):
 
@@ -395,7 +351,7 @@ def calc_contact_c(num_nodes: int,
         for node_i_k in node_group_indices_np[node_atm_indx:node_atm_indx_next]:
 
             # Go from 2D indices to 1D (n*(n-1)/2) indices:
-            j1 = get_lin_index_c(node_i_k, next_i_first, n_atoms)
+            j1 = get_lin_index_numba(node_i_k, next_i_first, n_atoms)
             jend = j1 + (n_atoms - next_i_first)
 
             # Gets the shortest distance between atoms in different nodes
@@ -406,22 +362,40 @@ def calc_contact_c(num_nodes: int,
 
         # Adds one to the contact to indicate that this frame had a contact.
         indices = np.unique(atom_to_node[np.where(tmp_dists_atms < cutoff_dist)[0]])
-        contact_mat[i, indices] += 1
+        for index in indices:
+            contact_mat[i, index] += 1
+
+
+@jit(nopython=True, parallel=True)
+def _place_distances(tmp_dists: npt.NDArray[np.float64],
+                     n_atoms: int,
+                     pairs: Any,
+                     distances: Any) -> None:  # pragma: no cover
+    """Result processing for self_capped_distance
+
+    This function converts the pair-distance results from the MDAnalysis function
+    self_capped_distance and places it in a NumPy array for further processing.
+
+    Args:
+        tmp_dists (Any) : Temporary pre-allocated NumPy array for atom distances.
+        n_atoms (int) : Number of atoms in atom groups represented by system nodes.
+        pairs (Any) : Results from self_capped_distance, listing pairs of nodes for
+            which distances were calculated.
+        distances (Any): The mathing distances calculated by self_capped_distance
+            for the pairs listed in `pairs`.
+
+    Returns:
+        None
+
+    """
+    for k in prange(len(pairs)):
+        i, j = pairs[k]
+        # Go from 2D node indices to 1D (n_atoms*(n_atoms-1)/2) indices:
+        ijLI = get_lin_index_numba(i, j, n_atoms)
+        tmp_dists[ijLI] = distances[k]
 
 
 # High memory usage (nAtoms*(nAtoms-1)/2), calcs all atom distances at once.
-@cython.cfunc
-@cython.returns(cython.void)
-@cython.locals(num_nodes=cython.int, n_atoms=cython.int, cutoff_dist=cython.float,
-               tmp_dists="np.ndarray[np.float_t, ndim=1]",
-               tmp_dists_atms="np.ndarray[np.float_t, ndim=1]",
-               contact_mat="np.ndarray[np.int_t, ndim=2]",
-               atom_to_node="np.ndarray[np.int_t, ndim=1]",
-               node_group_indices_np="np.ndarray[np.int_t, ndim=1]",
-               node_group_indices_np_aux="np.ndarray[np.int_t, ndim=1],",
-               dist_mode=cython.int)
-@cython.boundscheck(False)  # turn off bounds-checking for entire function
-@cython.wraparound(False)  # turn off negative index wrapping for entire function
 def get_contacts_c(selection: mda.AtomGroup,
                    num_nodes: int,
                    n_atoms: int,
@@ -435,9 +409,9 @@ def get_contacts_c(selection: mda.AtomGroup,
                    dist_mode: int = MODE_ALL) -> None:
     """Executes MDAnalysis atom distance calculation and node contact detection.
 
-    This function is Cython compiled as a wrapper for two optimized distance
+    This function is JIT compiled with Numba as a wrapper for two optimized distance
     calculation and contact determination calls. The first is MDAnalysis'
-    `self_distance_array`. The second is the internal :py:func:`calcContactC`.
+    `self_distance_array`. The second is the internal :py:func:`calc_contact_c`.
     All results are stored in pre-allocated NumPy arrays.
 
     Args:
@@ -445,7 +419,7 @@ def get_contacts_c(selection: mda.AtomGroup,
         num_nodes (int): Number of nodes in the system.
         n_atoms (int) : Number of atoms in atom groups represented by system nodes.
             Usually hydrogen atoms are not included in contact detection, and
-                are not present in atom groups.
+            are not present in atom groups.
         cutoff_dist (float) : Distance at which atoms are no longer
             considered 'in contact'.
         tmp_dists (Any) : Temporary pre-allocated NumPy array with atom distances.
@@ -460,7 +434,7 @@ def get_contacts_c(selection: mda.AtomGroup,
             in each node group.
         node_group_indices_np_aux (Any) : Auxiliary NumPy array with the indices of
             the first atom in each atom group, as listed in `nodeGroupIndicesNP`.
-        dist_mode: Method for distance calculation in MDAnalysis (all or capped).
+        dist_mode (int): Method for distance calculation in MDAnalysis (all or capped).
 
     """
 
@@ -480,10 +454,7 @@ def get_contacts_c(selection: mda.AtomGroup,
             method='pkdtree',
             return_distances=True)
 
-        for k, [i, j] in enumerate(pairs):
-            # Go from 2D node indices to 1D (n_atoms*(n_atoms-1)/2) indices:
-            ijLI = get_lin_index_c(i, j, n_atoms)
-            tmp_dists[ijLI] = distances[k]
+        _place_distances(tmp_dists, n_atoms, pairs, distances)
 
     calc_contact_c(num_nodes, n_atoms, cutoff_dist, tmp_dists,
                    tmp_dists_atms, contact_mat, atom_to_node,

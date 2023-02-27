@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import MDAnalysis
+
 # @author: melomcr
+
+import MDAnalysis
 
 import numpy as np
 import numpy.typing as npt
-import cython
+
 from multiprocessing import Queue
 
 # For generalized correlations
 from numba import jit
+from numba import prange
 
 ##################################################
 ##################################################
@@ -17,14 +20,10 @@ from numba import jit
 # Auxiliary functions for calculation of correlation coefficients.
 
 
-@cython.cfunc
-@cython.returns(cython.void)
-@cython.locals(num_nodes=cython.int,
-               num_dims=cython.int,
-               traj="np.ndarray[np.float_t, ndim=3]")
-@cython.boundscheck(False)  # turn off bounds-checking for entire function
-@cython.wraparound(False)  # turn off negative index wrapping for entire function
-def stand_vars_c(traj: npt.NDArray[np.float64], num_nodes: int, num_dims: int) -> None:
+@jit('void(f8[:,:,:], i8, i8)', nopython=True, parallel=True)
+def stand_vars_c(traj: npt.NDArray[np.float64],
+                 num_nodes: int,
+                 num_dims: int) -> None:  # pragma: no cover
     """Standardize variables in trajectory data.
 
     This function prepares the trajectory for the estimation of mutual
@@ -46,8 +45,8 @@ def stand_vars_c(traj: npt.NDArray[np.float64], num_nodes: int, num_dims: int) -
     """
 
     # Standardize variables
-    for atm in range(num_nodes):
-        for dim in range(num_dims):
+    for atm in prange(num_nodes):
+        for dim in prange(num_dims):
             # Normalize each dimension.
             traj[atm, dim, :] = (traj[atm, dim, :] -
                                  traj[atm, dim, :].mean()) / traj[atm, dim, :].std()
@@ -56,15 +55,6 @@ def stand_vars_c(traj: npt.NDArray[np.float64], num_nodes: int, num_dims: int) -
             traj[atm, dim, :] -= traj[atm, dim, :].min()
 
 
-@cython.cfunc
-@cython.returns(cython.void)
-@cython.locals(traj="np.ndarray[np.float_t, ndim=3]",
-               beg=cython.int,
-               end=cython.int,
-               numNodes=cython.int,
-               numDims=cython.int)
-@cython.boundscheck(False)  # turn off bounds-checking for entire function
-@cython.wraparound(False)  # turn off negative index wrapping for entire function
 def prep_mi_c(universe: MDAnalysis.Universe,
               traj: npt.NDArray[np.float64],
               beg: int,
@@ -269,7 +259,8 @@ def calc_cor_proc(traj: npt.NDArray[np.float64],
             out_queue.put((atmList, mir))
 
 
-def mir_to_corr(mir: float, num_dims: int = 3) -> float:
+@jit(nopython=True, nogil=True)
+def mir_to_corr(mir: float, num_dims: int = 3) -> float:  # pragma: no cover
     """Transforms Mutual Information R into Generalized Correlation Coefficient
 
     Returns:

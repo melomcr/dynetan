@@ -71,7 +71,7 @@ exclude_patterns = []
 
 # This helps speed up the doc compilation time by avoiding the loading
 #   of multiple dependency packages.
-autodoc_mock_imports = ["numpy","np","cython","MDAnalysis","mda","multiprocessing","mp",
+autodoc_mock_imports = ["numpy","np","MDAnalysis","mda","multiprocessing","mp",
                         "networkx","nx","pandas","pd",
                         "community","colorama", "operator", "collections",
                         "pickle", "h5py","numba",

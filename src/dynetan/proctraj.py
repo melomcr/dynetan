@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import MDAnalysis
 
 # @author: melomcr
-
 
 from . import gencor as gc
 from . import contact as ct
@@ -121,9 +119,9 @@ class DNAproc:
         self.notSelResNamesSet = None
         self.notSelSegidSet = None
 
-        self.workU: MDAnalysis.Universe = None
+        self.workU: mda.Universe = None
 
-        self.nodesAtmSel: MDAnalysis.core.groups.AtomGroup = None
+        self.nodesAtmSel: mda.core.groups.AtomGroup = None
         self.atomToNode = None
 
         self.numNodes = None
