@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.abspath('../../src'))
 # -- Project information -----------------------------------------------------
 
 project = 'Dynamical Network Analysis'
-copyright = '2020, Marcelo C. R. Melo ; Rafael C. Bernardi'
+copyright = '2023, Marcelo C. R. Melo ; Rafael C. Bernardi'
 author = 'Marcelo C. R. Melo ; Rafael C. Bernardi'
 
 # The default replacements for |version| and |release|, also used in various

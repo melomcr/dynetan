@@ -4,13 +4,15 @@
 Tutorial
 =========
 
-A tutorial was designed to provide a detailed description of the workflow of
-the Dynamical Network Analysis implementation provided here. This tutorial
-combines all data generation and analysis tools provided in this package, and
-provides an interactive interface through Jupyter Notebooks.
+A series of tutorials were designed to provide a detailed description of the workflow of
+the Dynamical Network Analysis implementation provided here. The tutorials
+combine system preparation, data generation, and analysis tools provided in this
+package. Tutorials also cover the use if this package through interactive interface
+using Jupyter Notebooks, as well as command-line-interface (CLI) scripts that can be
+deployed for execution in remote computer clusters.
 
 For the latest version of the tutorial, download the
-`tutorial files here <http://www.ks.uiuc.edu/~rcbernardi/NetworkAnalysis/DynamicNetworkAnalysis_TutorialNotebooks.tar.gz>`_
+`tutorial files here <https://github.com/melomcr/dynetan_tutorial>`_
 along with accompanying
-`trajectory data here <http://www.ks.uiuc.edu/~rcbernardi/NetworkAnalysis/DynamicNetworkAnalysis_MDdata.tar.gz>`_
+`trajectory data here <https://compbiophysics.auburn.edu/DyNetAn_Tutorial/data/DynamicNetworkAnalysis_MDdata.tar.gz>`_
 (trajectory files are approximately 500MB in size).
