@@ -836,7 +836,7 @@ class DNAproc:
 
         self.atomToNode = np.full(shape=len(self.workU.atoms),
                                   fill_value=-1,
-                                  dtype=int)
+                                  dtype=np.int64)
 
         # Creates an array relating atoms to nodes.
         for indx, node in enumerate(self.progBar(self.nodesAtmSel.atoms,
@@ -889,9 +889,9 @@ class DNAproc:
 
         self.nodeGroupIndicesNP = np.asarray(
             list(chain.from_iterable(nodeGroupIndices)),
-            dtype=int)
+            dtype=np.int64)
 
-        self.nodeGroupIndicesNPAux = np.zeros(self.numNodes, dtype=int)
+        self.nodeGroupIndicesNPAux = np.zeros(self.numNodes, dtype=np.int64)
 
         for indx, atmGrp in enumerate(nodeGroupIndices[1:], start=1):
             self.nodeGroupIndicesNPAux[indx] = len(nodeGroupIndices[indx - 1]) + \
@@ -1300,7 +1300,7 @@ class DNAproc:
         # Creates an array relating all atoms in the system to nodes.
         self.atomToNode = np.full(shape=allSel.n_atoms,
                                   fill_value=-1,
-                                  dtype=int)
+                                  dtype=np.int64)
 
         if verbose > 0:
             print("Updating atom-to-node mapping...")
