@@ -220,8 +220,8 @@ def calc_cor_proc(traj: npt.NDArray[np.float64],
     Args:
         traj (Any): NumPy array with trajectory information.
         win_len (int): Number of trajectory frames in the current window.
-        psi (float): Pre-calculated parameter used for mutual information estimation.
-        phi (float): Pre-calculated parameter used for mutual information estimation.
+        psi (Any): Pre-calculated parameter used for mutual information estimation.
+        phi (Any): Pre-calculated parameter used for mutual information estimation.
         num_dims (int): Number of dimensions in trajectory data
             (usually 3 dimensions, for X,Y,Z coordinates).
         k_neighb (int): Parameter used for mutual information estimation.
