@@ -47,26 +47,31 @@ def load_sys_solv_mode(dnap_base, solv, mode):
 
 
 @pytest.mark.parametrize(
-    ("solv", "backend", "mode", "node_dists_shape", "distances"), [
+    ("solv", "backend", "mode", "node_dists_shape", "distances", "ncores"), [
         pytest.param(True,  "serial", "all", (4, 117855),
-                     dist_list + solv_dist_list),
+                     dist_list + solv_dist_list, 1),
         pytest.param(False, "serial", "all", (4, 23436),
-                     dist_list),
+                     dist_list, 1),
         pytest.param(True,  "openmp", "all", (4, 117855),
-                     dist_list + solv_dist_list),
+                     dist_list + solv_dist_list, 1),
         pytest.param(False, "openmp", "all", (4, 23436),
-                     dist_list),
+                     dist_list, 1),
         pytest.param(True,  "serial", "capped", (4, 117855),
-                     dist_list_capped + solv_dist_list),
+                     dist_list_capped + solv_dist_list, 1),
         pytest.param(False, "serial", "capped", (4, 23436),
-                     dist_list_capped)])
+                     dist_list_capped, 1),
+        pytest.param(True,  "serial", "all", (4, 117855),
+                     dist_list + solv_dist_list, 5),
+        pytest.param(False, "serial", "all", (4, 23436),
+                     dist_list, 5),
+    ])
 def test_calc_cartesian(dnap_omp,
                         solv, backend, mode,
-                        node_dists_shape, distances):
+                        node_dists_shape, distances, ncores):
 
     dnap = load_sys_solv_mode(dnap_omp, solv, mode)
 
-    dnap.calcCartesian(backend=backend, verbose=0)
+    dnap.calcCartesian(backend=backend, verbose=0, ncores=ncores)
 
     assert dnap.nodeDists.shape == node_dists_shape
 
@@ -84,12 +89,13 @@ def test_calc_cartesian(dnap_omp,
 
 
 @pytest.mark.parametrize(
-    ("solv", "mode", "nodes_atms"), [
-        pytest.param(True,  "all",    (486, 1928)),
-        pytest.param(False, "all",    (217, 1659)),
-        pytest.param(True,  "capped", (486, 1928, 14771)),
-        pytest.param(False, "capped", (217, 1659, 13765))])
-def test_calc_cartesian_verb(dnap_omp, capfd, solv, mode, nodes_atms):
+    ("solv", "mode", "nodes_atms", "ncores"), [
+        pytest.param(True,  "all",    (486, 1928), 1),
+        pytest.param(True,  "all",    (486, 1928), 5),
+        pytest.param(False, "all",    (217, 1659), 1),
+        pytest.param(True,  "capped", (486, 1928, 14771), 1),
+        pytest.param(False, "capped", (217, 1659, 13765), 1)])
+def test_calc_cartesian_verb(dnap_omp, capfd, solv, mode, nodes_atms, ncores):
 
     # Here we only test verbosity output, which is the same with either backend
     backend = "serial"
@@ -99,7 +105,7 @@ def test_calc_cartesian_verb(dnap_omp, capfd, solv, mode, nodes_atms):
 
     dnap = load_sys_solv_mode(dnap_omp, solv, mode)
 
-    dnap.calcCartesian(backend=backend, verbose=2)
+    dnap.calcCartesian(backend=backend, verbose=2, ncores=ncores)
 
     # Check verbosity output for multicore run
     captured = capfd.readouterr()
@@ -110,7 +116,7 @@ def test_calc_cartesian_verb(dnap_omp, capfd, solv, mode, nodes_atms):
     test_str = "Sampling a total of 4 frames from 2 windows (2 per window)"
     assert test_str in captured.out
 
-    # Form contact.calcDistances method ###########
+    # Form contact.calc_distances method ###########
 
     test_str = f"There are {num_nodes} nodes and {num_atoms} atoms in this system."
     assert test_str in captured.out
@@ -140,12 +146,6 @@ def test_calc_cartesian_verb(dnap_omp, capfd, solv, mode, nodes_atms):
         test_str = "loading distances in array"
         assert test_str in captured.out
 
-        test_str = "Loaded 13000 distances"
-        assert test_str in captured.out
-
-        test_str = "Time for 13000 distances:"
-        assert test_str in captured.out
-
         test_str = "Time for loading distances:"
         assert test_str in captured.out
 
@@ -154,6 +154,10 @@ def test_calc_cartesian_verb(dnap_omp, capfd, solv, mode, nodes_atms):
 
     test_str = "running atm_to_node_dist"
     assert test_str in captured.out
+
+    if ncores > 1:
+        test_str = f"Using multicore implementation with {ncores} processes."
+        assert test_str in captured.out
 
     test_str = "Time for atm_to_node_dist:"
     assert test_str in captured.out

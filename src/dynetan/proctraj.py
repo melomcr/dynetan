@@ -949,7 +949,8 @@ class DNAproc:
                      beg: int = 0,
                      end: int = -1,
                      stride: int = 1,
-                     verbose: int = 0) -> None:
+                     verbose: int = 0,
+                     ncores: int = 1) -> None:
         """Wrapper for contact calculation per trajectory window.
 
         Pre allocates the necessary temporary NumPy arrays to speed up calculations.
@@ -961,6 +962,7 @@ class DNAproc:
         assert isinstance(end, int)
         assert isinstance(stride, int)
         assert isinstance(verbose, int)
+        assert isinstance(ncores, int)
 
         # Creates atom selection for distance calculation
         selectionAtms = self.workU.select_atoms("all")
@@ -1012,6 +1014,9 @@ class DNAproc:
         if verbose > 1:
             print(f"Checking frames {beg} to {end} with stride {stride}.")
 
+            if ncores > 1:
+                print(f"Using multicore implementation with {ncores} processes.")
+
         for ts in self.workU.trajectory[beg:end:stride]:
 
             if verbose > 1:
@@ -1021,7 +1026,6 @@ class DNAproc:
             # Calculates distances to determine contact matrix
             ct.get_contacts_c(selectionAtms,
                               self.numNodes,
-                              nAtoms,
                               self.cutoffDist,
                               tmpDists,
                               tmpDistsAtms,
@@ -1029,9 +1033,10 @@ class DNAproc:
                               self.atomToNode,
                               self.nodeGroupIndicesNP,
                               self.nodeGroupIndicesNPAux,
-                              dist_mode=self.distanceMode)
+                              dist_mode=self.distanceMode,
+                              ncores=ncores)
 
-    def findContacts(self, stride: int = 1, verbose: int = 1) -> None:
+    def findContacts(self, stride: int = 1, verbose: int = 1, ncores: int = 1) -> None:
         """Finds all nodes in contact.
 
         This is the main user interface access to calculate nodes in contact.
@@ -1053,15 +1058,18 @@ class DNAproc:
         Args:
             stride (int) : Controls how many trajectory frames will be skipped
                 during contact calculation.
-
             verbose (int): Controls verbosity level in the function.
+            ncores (int): Number of cores used to process cartesian distance between
+                network nodes.
 
         """
 
         assert isinstance(stride, int)
         assert isinstance(verbose, int)
+        assert isinstance(ncores, int)
 
         assert stride > 0
+        assert ncores > 0
 
         # Allocate contact matrix(ces)
         self.contactMatAll = np.zeros([self.numWinds, self.numNodes, self.numNodes],
@@ -1089,7 +1097,8 @@ class DNAproc:
                               beg,
                               end,
                               stride,
-                              verbose)
+                              verbose,
+                              ncores)
 
             if verbose > 1:
                 end_timer = timer()
@@ -1729,7 +1738,8 @@ class DNAproc:
 
     def calcCartesian(self,
                       backend: backend_types_literal = "serial",
-                      verbose: int = 1) -> None:
+                      verbose: int = 1,
+                      ncores: int = 1) -> None:
         """Main interface for calculation of cartesian distances.
 
         Determines the shortest cartesian distance between atoms in node groups
@@ -1746,13 +1756,17 @@ class DNAproc:
                 calculation of cartesian distances. Options are `serial` or
                 `openmp`. This option is ignored if the distance mode is not "all".
             verbose (int) : Defines verbosity of output.
+            ncores (int): Number of cores used to process cartesian distance between
+                network nodes.
         """
 
         assert isinstance(verbose, int)
         assert isinstance(backend, str)
+        assert isinstance(ncores, int)
 
         assert backend in backend_types, f"Only allowed backend options " \
                                          f"are {backend_types}"
+        assert ncores > 0
 
         if verbose > 0:
             print("Calculating cartesian distances...\n")
@@ -1791,7 +1805,8 @@ class DNAproc:
                               nodeDistsTmp,
                               backend,
                               dist_mode=self.distanceMode,
-                              verbose=verbose)
+                              verbose=verbose,
+                              ncores=ncores)
 
             # Mean
             self.nodeDists[0, :] += nodeDistsTmp
@@ -1817,7 +1832,8 @@ class DNAproc:
                               nodeDistsTmp,
                               backend,
                               dist_mode=self.distanceMode,
-                              verbose=verbose)
+                              verbose=verbose,
+                              ncores=ncores)
 
             # Accumulates the squared difference
             self.nodeDists[1, :] += np.square(self.nodeDists[0, :] - nodeDistsTmp)

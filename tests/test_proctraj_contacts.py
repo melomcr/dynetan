@@ -50,11 +50,13 @@ def test_align_verb(dnap_omp, capfd):
     assert "protein and resid 61" in captured.out
 
 
-@pytest.mark.parametrize(("solv", "stride", "num_contacts"), [
-    pytest.param(True,  1, 1898),
-    pytest.param(True,  2, 1958),
-    pytest.param(False, 1, 1075)])
-def test_find_contacts(dnap_omp, solv, stride, num_contacts):
+@pytest.mark.parametrize(("solv", "stride", "ncores", "num_contacts"), [
+    pytest.param(True,  1, 1, 1898),
+    pytest.param(True,  2, 1, 1958),
+    pytest.param(False, 1, 1, 1075),
+    pytest.param(True,  1, 5, 1898),
+    pytest.param(False, 1, 5, 1075)])
+def test_find_contacts(dnap_omp, solv, stride, ncores, num_contacts):
     """This will test the contact detection main function.
 
     The default contact persistence is 0.75.
@@ -73,7 +75,7 @@ def test_find_contacts(dnap_omp, solv, stride, num_contacts):
 
     dnap_omp.alignTraj()
 
-    dnap_omp.findContacts(stride=stride)
+    dnap_omp.findContacts(stride=stride, ncores=ncores)
 
     contacts = len(np.asarray(np.where(np.triu(dnap_omp.contactMat) > 0)).T)
 
@@ -118,7 +120,7 @@ def test_find_contacts_verb(dnap_omp, capfd):
 
     dnap_omp.alignTraj()
 
-    dnap_omp.findContacts(stride=2, verbose=2)
+    dnap_omp.findContacts(stride=2, verbose=2, ncores=2)
 
     captured = capfd.readouterr()
 
@@ -131,6 +133,8 @@ def test_find_contacts_verb(dnap_omp, capfd):
     assert "Allocating temporary distance" in captured.out
     assert "Allocated temporary distance " in captured.out
     assert "Allocated temporary NODE distance " in captured.out
+
+    assert "Using multicore implementation with 2 processes." in captured.out
 
     assert "Checking frames 0 to 10 with stride 2." in captured.out
     assert "Checking frames 10 to 20 with stride 2." in captured.out
