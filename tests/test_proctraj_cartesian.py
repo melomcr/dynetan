@@ -47,7 +47,7 @@ def load_sys_solv_mode(dnap_base, solv, mode):
 
 
 @pytest.mark.parametrize(
-    ("solv", "backend", "mode", "node_dists_shape", "distances", "ncores"), [
+    ("solv", "backend", "mode", "node_dists_shape", "distances", "n_cores"), [
         pytest.param(True,  "serial", "all", (4, 117855),
                      dist_list + solv_dist_list, 1),
         pytest.param(False, "serial", "all", (4, 23436),
@@ -67,11 +67,11 @@ def load_sys_solv_mode(dnap_base, solv, mode):
     ])
 def test_calc_cartesian(dnap_omp,
                         solv, backend, mode,
-                        node_dists_shape, distances, ncores):
+                        node_dists_shape, distances, n_cores):
 
     dnap = load_sys_solv_mode(dnap_omp, solv, mode)
 
-    dnap.calcCartesian(backend=backend, verbose=0, ncores=ncores)
+    dnap.calcCartesian(backend=backend, verbose=0, n_cores=n_cores)
 
     assert dnap.nodeDists.shape == node_dists_shape
 
@@ -89,13 +89,13 @@ def test_calc_cartesian(dnap_omp,
 
 
 @pytest.mark.parametrize(
-    ("solv", "mode", "nodes_atms", "ncores"), [
+    ("solv", "mode", "nodes_atms", "n_cores"), [
         pytest.param(True,  "all",    (486, 1928), 1),
         pytest.param(True,  "all",    (486, 1928), 5),
         pytest.param(False, "all",    (217, 1659), 1),
         pytest.param(True,  "capped", (486, 1928, 14771), 1),
         pytest.param(False, "capped", (217, 1659, 13765), 1)])
-def test_calc_cartesian_verb(dnap_omp, capfd, solv, mode, nodes_atms, ncores):
+def test_calc_cartesian_verb(dnap_omp, capfd, solv, mode, nodes_atms, n_cores):
 
     # Here we only test verbosity output, which is the same with either backend
     backend = "serial"
@@ -105,7 +105,7 @@ def test_calc_cartesian_verb(dnap_omp, capfd, solv, mode, nodes_atms, ncores):
 
     dnap = load_sys_solv_mode(dnap_omp, solv, mode)
 
-    dnap.calcCartesian(backend=backend, verbose=2, ncores=ncores)
+    dnap.calcCartesian(backend=backend, verbose=2, n_cores=n_cores)
 
     # Check verbosity output for multicore run
     captured = capfd.readouterr()
@@ -155,8 +155,8 @@ def test_calc_cartesian_verb(dnap_omp, capfd, solv, mode, nodes_atms, ncores):
     test_str = "running atm_to_node_dist"
     assert test_str in captured.out
 
-    if ncores > 1:
-        test_str = f"Using multicore implementation with {ncores} processes."
+    if n_cores > 1:
+        test_str = f"Using multicore distance processing with {n_cores} cores."
         assert test_str in captured.out
 
     test_str = "Time for atm_to_node_dist:"

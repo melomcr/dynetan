@@ -32,7 +32,7 @@ def get_lin_index_numba(src: int, trgt: int, n: int) -> int:  # pragma: no cover
     """Conversion from 2D matrix indices to 1D triangular.
 
     Converts from 2D matrix indices to 1D (n*(n-1)/2) unwrapped triangular
-    matrix index. This version of the function is JIT compiled using Numba.
+    matrix index. This function is JIT compiled using Numba.
 
     Args:
         src (int): Source node.
@@ -62,6 +62,7 @@ def _find_node_dists(node_i: int,
 
     This function finds the shortest distances between atoms in the current `node_i`
     and all atoms in following node groups in the systems.
+    This function is JIT compiled using Numba.
 
     Args:
         node_i (int): Node index.
@@ -112,14 +113,14 @@ def atm_to_node_dist(num_nodes: int,
 
     This function is JIT compiled by Numba to optimize the search for shortest
     cartesian distances between atoms in different node groups . It relies on
-    the results of MDAnalysis' `self_distance_array` calculation, stored in a 1D
+    the results of MDAnalysis' distance calculation, stored in a 1D
     NumPy array of shape (n*(n-1)/2,), which acts as an unwrapped triangular matrix.
 
     The pre-allocated triangular matrix passed as an argument to this function
     is used to store the shortest cartesian distance between each pair of nodes.
 
     This is intended as an analysis tool to allow the comparison of network
-    distances and cartesian distances. It is similar to :py:func:`calc_contact_c`,
+    distances and cartesian distances. It is similar to :py:func:`dist_to_contact`,
     which is optimized for contact detection.
 
     Args:
@@ -176,35 +177,26 @@ def atm_to_node_dist_proc(num_nodes: int,
                           out_queue: Queue) -> None:
     """ (PROCESS) Translates MDAnalysis distance calculation to node distance matrix.
 
-        This function is a parallel version of `atm_to_node_dist`. It is optimized
-        to the search for shortest
-        cartesian distances between atoms in different node groups . It relies on
-        the results of MDAnalysis' `self_distance_array` calculation, stored in a 1D
-        NumPy array of shape (n*(n-1)/2,), which acts as an unwrapped triangular matrix.
+    This function is a parallel version of :py:func:`atm_to_node_dist`.
+    It executes the calculations prepared by the :py:func:`atm_to_node_dist_par`
+    function.
 
-        The pre-allocated triangular matrix passed as an argument to this function
-        is used to store the shortest cartesian distance between each pair of nodes.
-
-        This is intended as an analysis tool to allow the comparison of network
-        distances and cartesian distances. It is similar to :py:func:`calc_contact_c`,
-        which is optimized for contact detection.
-
-        Args:
-            num_nodes (int): Number of nodes in the system.
-            n_atoms (int) : Number of atoms in atom groups represented by system nodes.
-                Usually hydrogen atoms are not included in contact detection, and
-                are not present in atom groups.
-            tmp_dists (Any) : Temporary pre-allocated NumPy array with atom distances.
-                This is the result of MDAnalysis `self_distance_array` calculation.
-            atom_to_node (Any) : NumPy array that maps atoms in atom groups to their
-                respective nodes.
-            node_group_indices_np (Any) : NumPy array with atom indices for all atoms
-                in each node group.
-            node_group_indices_np_aux (Any) : Auxiliary NumPy array with the indices of
-                the first atom in each atom group, as listed in `node_group_indices_np`.
-            in_queue (Any) : Multiprocessing queue object for acquiring jobs.
-            out_queue (Any) : Multiprocessing queue object for placing results.
-        """
+    Args:
+        num_nodes (int): Number of nodes in the system.
+        n_atoms (int) : Number of atoms in atom groups represented by system nodes.
+            Usually hydrogen atoms are not included in contact detection, and
+            are not present in atom groups.
+        tmp_dists (Any) : Temporary pre-allocated NumPy array with atom distances.
+            This is the result of MDAnalysis `self_distance_array` calculation.
+        atom_to_node (Any) : NumPy array that maps atoms in atom groups to their
+            respective nodes.
+        node_group_indices_np (Any) : NumPy array with atom indices for all atoms
+            in each node group.
+        node_group_indices_np_aux (Any) : Auxiliary NumPy array with the indices of
+            the first atom in each atom group, as listed in `node_group_indices_np`.
+        in_queue (Any) : Multiprocessing queue object for acquiring jobs.
+        out_queue (Any) : Multiprocessing queue object for placing results.
+    """
 
     max_val: Any = np.finfo(np.float64).max
     proc_dist_atms: npt.NDArray[np.float64] = np.full(n_atoms, max_val,
@@ -258,21 +250,12 @@ def atm_to_node_dist_par(num_nodes: int,
                          node_group_indices_np: npt.NDArray[np.int64],
                          node_group_indices_np_aux: npt.NDArray[np.int64],
                          node_dists: npt.NDArray[np.float64],
-                         ncores: int) -> None:
+                         n_cores: int) -> None:
     """ (PARALLEL) Translates MDAnalysis distance calculation to node distance matrix.
 
-    This function is a parallel version of :py:func:`atm_to_node_dist`. It is optimized
-    to the search for shortest
-    cartesian distances between atoms in different node groups . It relies on
-    the results of MDAnalysis' `self_distance_array` calculation, stored in a 1D
-    NumPy array of shape (n*(n-1)/2,), which acts as an unwrapped triangular matrix.
-
-    The pre-allocated triangular matrix passed as an argument to this function
-    is used to store the shortest cartesian distance between each pair of nodes.
-
-    This is intended as an analysis tool to allow the comparison of network
-    distances and cartesian distances. It is similar to :py:func:`calc_contact_c`,
-    which is optimized for contact detection.
+    This function is a parallel version of :py:func:`atm_to_node_dist`.
+    It prepares the calculations and initialized `n_cores` processes using the
+    :py:func:`atm_to_node_dist_proc` function.
 
     Args:
         num_nodes (int): Number of nodes in the system.
@@ -289,7 +272,7 @@ def atm_to_node_dist_par(num_nodes: int,
             the first atom in each atom group, as listed in `node_group_indices_np`.
         node_dists (Any) : Pre-allocated array to store cartesian distances
             between *nodes*. This is a linearized upper triangular matrix.
-        ncores (int): Number of cores used to process cartesian distance between
+        n_cores (int): Number of cores used to process cartesian distance between
             network nodes.
     """
 
@@ -303,7 +286,7 @@ def atm_to_node_dist_par(num_nodes: int,
 
     # Creates processes.
     procs = []
-    for _ in range(ncores):
+    for _ in range(n_cores):
         # Include termination flags for the processes in the input queue
         # The termination flag is an empty list
         data_queue.put(-1)
@@ -348,7 +331,7 @@ def calc_distances(selection: mda.AtomGroup,
                    backend: str = "serial",
                    dist_mode: int = MODE_ALL,
                    verbose: int = 0,
-                   ncores: int = 1) -> None:
+                   n_cores: int = 1) -> None:
     """Executes MDAnalysis atom distance calculation and node cartesian
     distance calculation.
 
@@ -382,7 +365,7 @@ def calc_distances(selection: mda.AtomGroup,
         dist_mode (int): Distance calculation method. Options are 0
             (for mode "all") and 1 (for mode "capped").
         verbose (int): Controls informational output.
-        ncores (int): Number of cores used to process cartesian distance between
+        n_cores (int): Number of cores used to process cartesian distance between
                 network nodes.
 
     """
@@ -463,7 +446,7 @@ def calc_distances(selection: mda.AtomGroup,
         start = timer()
 
     # Translate atoms distances in minimum node distance.
-    if ncores == 1:
+    if n_cores == 1:
         atm_to_node_dist(num_nodes,
                          n_atoms,
                          tmp_dists,
@@ -473,7 +456,7 @@ def calc_distances(selection: mda.AtomGroup,
                          node_dists)
     else:
         if verbose > 1:
-            print(f"Using multicore implementation with {ncores} processes.")
+            print(f"Using multicore distance processing with {n_cores} cores.")
         atm_to_node_dist_par(num_nodes,
                              n_atoms,
                              tmp_dists,
@@ -481,7 +464,7 @@ def calc_distances(selection: mda.AtomGroup,
                              node_group_indices_np,
                              node_group_indices_np_aux,
                              node_dists,
-                             ncores)
+                             n_cores)
 
     if verbose > 1:
         end = timer()
@@ -490,21 +473,21 @@ def calc_distances(selection: mda.AtomGroup,
 
 @jit('void(i8, i8, f8, f8[:], f8[:], i8[:,:], i8[:], i8[:], i8[:])',
      nopython=True)
-def calc_contact_c(num_nodes: int,
-                   n_atoms: int,
-                   cutoff_dist: float,
-                   tmp_dists: npt.NDArray[np.float64],
-                   tmp_dists_atms: npt.NDArray[np.float64],
-                   contact_mat: npt.NDArray[np.int64],
-                   atom_to_node: npt.NDArray[np.int64],
-                   node_group_indices_np: npt.NDArray[np.int64],
-                   node_group_indices_np_aux: npt.NDArray[np.int64]) \
+def dist_to_contact(num_nodes: int,
+                    n_atoms: int,
+                    cutoff_dist: float,
+                    tmp_dists: npt.NDArray[np.float64],
+                    tmp_dists_atms: npt.NDArray[np.float64],
+                    contact_mat: npt.NDArray[np.int64],
+                    atom_to_node: npt.NDArray[np.int64],
+                    node_group_indices_np: npt.NDArray[np.int64],
+                    node_group_indices_np_aux: npt.NDArray[np.int64]) \
         -> None:  # pragma: no cover
     """Translates MDAnalysis distance calculation to node contact matrix.
 
     This function is JIT compiled with Numba to optimize the search for nodes
     in contact.
-    It relies on the results of MDAnalysis' `self_distance_array` calculation,
+    It relies on the results of MDAnalysis' distance calculation,
     stored in a 1D NumPy array of shape (n*(n-1)/2,), which acts as an unwrapped
     triangular matrix.
 
@@ -561,29 +544,20 @@ def calc_contact_c(num_nodes: int,
             contact_mat[i, index] += 1
 
 
-def calc_contact_proc(n_atoms: int,
-                      cutoff_dist: float,
-                      tmp_dists: npt.NDArray[np.float64],
-                      atom_to_node: npt.NDArray[np.int64],
-                      node_group_indices_np: npt.NDArray[np.int64],
-                      node_group_indices_np_aux: npt.NDArray[np.int64],
-                      in_queue: Queue,
-                      out_queue: Queue) \
+def dist_to_contact_proc(n_atoms: int,
+                         cutoff_dist: float,
+                         tmp_dists: npt.NDArray[np.float64],
+                         atom_to_node: npt.NDArray[np.int64],
+                         node_group_indices_np: npt.NDArray[np.int64],
+                         node_group_indices_np_aux: npt.NDArray[np.int64],
+                         in_queue: Queue,
+                         out_queue: Queue) \
         -> None:
     """ (PROCESS) Translates MDAnalysis distance calculation to node contact matrix.
 
-    This function is JIT compiled with Numba to optimize the search for nodes
-    in contact.
-    It relies on the results of MDAnalysis' `self_distance_array` calculation,
-    stored in a 1D NumPy array of shape (n*(n-1)/2,), which acts as an unwrapped
-    triangular matrix.
-
-    In this function, the distances between all atoms in an atom groups of all
-    pairs of nodes are verified to check if any pair of atoms were closer than
-    a cutoff distance. This is done for all pairs of nodes in the system, and
-    all frames in the trajectory. The pre-allocated contact matrix passed as an
-    argument to this function is used to store the number of frames where each
-    pair of nodes had at least one contact.
+    This function is a parallel version of :py:func:`dist_to_contact`.
+    It executes the calculations prepared by the :py:func:`dist_to_contact_par`
+    function.
 
     Args:
         n_atoms (int) : Number of atoms in atom groups represented by system nodes.
@@ -637,30 +611,21 @@ def calc_contact_proc(n_atoms: int,
             out_queue.put((node_i, indices))
 
 
-def calc_contact_par(num_nodes: int,
-                     n_atoms: int,
-                     cutoff_dist: float,
-                     tmp_dists: npt.NDArray[np.float64],
-                     contact_mat: npt.NDArray[np.int64],
-                     atom_to_node: npt.NDArray[np.int64],
-                     node_group_indices_np: npt.NDArray[np.int64],
-                     node_group_indices_np_aux: npt.NDArray[np.int64],
-                     ncores: int = 1) \
+def dist_to_contact_par(num_nodes: int,
+                        n_atoms: int,
+                        cutoff_dist: float,
+                        tmp_dists: npt.NDArray[np.float64],
+                        contact_mat: npt.NDArray[np.int64],
+                        atom_to_node: npt.NDArray[np.int64],
+                        node_group_indices_np: npt.NDArray[np.int64],
+                        node_group_indices_np_aux: npt.NDArray[np.int64],
+                        n_cores: int = 1) \
         -> None:
     """ (PARALlEL) Translates MDAnalysis distance calculation to node contact matrix.
 
-    This function is JIT compiled with Numba to optimize the search for nodes
-    in contact.
-    It relies on the results of MDAnalysis' `self_distance_array` calculation,
-    stored in a 1D NumPy array of shape (n*(n-1)/2,), which acts as an unwrapped
-    triangular matrix.
-
-    In this function, the distances between all atoms in an atom groups of all
-    pairs of nodes are verified to check if any pair of atoms were closer than
-    a cutoff distance. This is done for all pairs of nodes in the system, and
-    all frames in the trajectory. The pre-allocated contact matrix passed as an
-    argument to this function is used to store the number of frames where each
-    pair of nodes had at least one contact.
+    This function is a parallel version of :py:func:`dist_to_contact`.
+    It prepares the calculations and initialized `n_cores` processes using the
+    :py:func:`dist_to_contact_proc` function.
 
     Args:
         num_nodes (int): Number of nodes in the system.
@@ -679,7 +644,7 @@ def calc_contact_par(num_nodes: int,
             in each node group.
         node_group_indices_np_aux (Any) : Auxiliary NumPy array with the indices of
             the first atom in each atom group, as listed in `node_group_indices_np`.
-
+        n_cores (int): Number of cores used to parallelize calculation.
     """
 
     # Create queues that feed processes with node pairs, and gather results.
@@ -692,13 +657,13 @@ def calc_contact_par(num_nodes: int,
 
     # Creates processes.
     procs = []
-    for _ in range(ncores):
+    for _ in range(n_cores):
         # Include termination flags for the processes in the input queue
         # The termination flag is an empty list
         data_queue.put(-1)
 
         # Initialize process
-        proc = mp.Process(target=calc_contact_proc,
+        proc = mp.Process(target=dist_to_contact_proc,
                           args=(n_atoms, cutoff_dist,
                                 tmp_dists,
                                 atom_to_node,
@@ -770,7 +735,7 @@ def get_contacts_c(selection: mda.AtomGroup,
 
     This function is JIT compiled with Numba as a wrapper for two optimized distance
     calculation and contact determination calls. The first is MDAnalysis'
-    `self_distance_array`. The second is the internal :py:func:`calc_contact_c`.
+    `self_distance_array`. The second is the internal :py:func:`dist_to_contact`.
     All results are stored in pre-allocated NumPy arrays.
 
     Args:
@@ -817,11 +782,11 @@ def get_contacts_c(selection: mda.AtomGroup,
         _place_distances(tmp_dists, n_atoms, pairs, distances)
 
     if ncores == 1:
-        calc_contact_c(num_nodes, n_atoms, cutoff_dist, tmp_dists,
-                       tmp_dists_atms, contact_mat, atom_to_node,
-                       node_group_indices_np, node_group_indices_np_aux)
+        dist_to_contact(num_nodes, n_atoms, cutoff_dist,
+                        tmp_dists, tmp_dists_atms, contact_mat, atom_to_node,
+                        node_group_indices_np, node_group_indices_np_aux)
     else:
-        calc_contact_par(num_nodes, n_atoms, cutoff_dist, tmp_dists,
-                         contact_mat, atom_to_node,
-                         node_group_indices_np, node_group_indices_np_aux,
-                         ncores)
+        dist_to_contact_par(num_nodes, n_atoms, cutoff_dist,
+                            tmp_dists, contact_mat, atom_to_node,
+                            node_group_indices_np, node_group_indices_np_aux,
+                            ncores)
