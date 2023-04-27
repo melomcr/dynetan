@@ -509,6 +509,48 @@ class DNAproc:
         self.notSelResNamesSet = notSelResNamesSet
         self.notSelSegidSet = notSelSegidSet
 
+    def _get_sel_check_set(self, with_solvent: bool) -> Union[mda.AtomGroup, None]:
+        """
+        Returns an atom selection object or None for selection of structural
+        solvent, ions, and other molecules.
+
+        Args:
+            with_solvent (bool): Whether solvent molecules should be automatically
+                selected for analysis.
+
+        Returns:
+            mda.AtomGroup
+        """
+        if with_solvent:
+            # For automatic solvent detection, we use the segIDs that were
+            # not selected by the user as targets for network analysis.
+            if self.notSelSegidSet:
+                selStr = "(not (name H* or name [123]H*)) "
+                selStr += "and segid " + " ".join(self.notSelSegidSet)
+                checkSet = self.workU.select_atoms(selStr)
+            else:
+                print("WARNING: All segments have been selected for Network "
+                      "Analysis, none are left for automatic identification "
+                      "of structural solvent molecules or lipids.")
+                checkSet = None
+        else:
+            # Without solvent detection, the new selection removes all solvent
+            # molecules from the selection but keeps selected segments.
+            # Those may have ions or ligands that may be structural and
+            # necessary for the analysis.
+            if self.notSelSegidSet:
+                selStr = "segid " + " ".join(self.notSelSegidSet)
+                selStr += " and not resname " + " ".join(self.solventNames)
+                selStr += " and not (name H* or name [123]H*)"
+                checkSet = self.workU.select_atoms(selStr)
+            else:
+                print("WARNING: All segments have been selected for Network "
+                      "Analysis, none are left for automatic identification "
+                      "of transient contacts.")
+                checkSet = None
+
+        return checkSet
+
     def selectSystem(self,
                      withSolvent: bool = False,
                      inputSelStr: str = "",
@@ -563,41 +605,38 @@ class DNAproc:
             initialSel = self.workU.select_atoms(inputSelStr)
 
         else:
-            if withSolvent:
-                # For automatic solvent detection, we use the segIDs that were
-                # not selected by the user as targets for network analysis.
-                if self.notSelSegidSet:
-                    selStr = "(not (name H* or name [123]H*)) "
-                    selStr += "and segid " + " ".join(self.notSelSegidSet)
-                    checkSet = self.workU.select_atoms(selStr)
-                else:
-                    print("WARNING: All segments have been selected for Network "
-                          "Analysis, none are left for automatic identification "
-                          "of structural solvent molecules or lipids.")
-                    checkSet = None
-            else:
-                # Without solvent detection, the new selection removes all solvent
-                # molecules from the selection but keeps other segments that may
-                # ions or ligands that may be structural and necessary for the
-                # analysis.
-                if self.notSelSegidSet:
-                    selStr = "segid " + " ".join(self.notSelSegidSet)
-                    selStr += " and not resname " + " ".join(self.solventNames)
-                    selStr += " and not (name H* or name [123]H*)"
-                    checkSet = self.workU.select_atoms(selStr)
-                else:
-                    print("WARNING: All segments have been selected for Network "
-                          "Analysis, none are left for automatic identification "
-                          "of transient contacts.")
-                    checkSet = None
+
+            checkSet = self._get_sel_check_set(withSolvent)
 
             if checkSet:
                 numAutoFrames: int = self.numSampledFrames * self.numWinds
 
                 stride = int(np.floor(len(self.workU.trajectory) / numAutoFrames))
 
-                print("Checking {0} frames (striding {1})...".format(
-                    numAutoFrames, stride))
+                if stride > 0:
+                    print("Checking {0} frames (striding {1})...".format(
+                        numAutoFrames, stride))
+                if stride <= 0:  # Sanity check
+
+                    n_frames = int(len(self.workU.trajectory))
+                    n_frames_w = len(self.workU.trajectory)/self.numWinds
+                    errorStr = f"The trajectory has {n_frames} frames, " \
+                               f"or {n_frames_w} frames per window, which is " \
+                               f"less than the number of sampled " \
+                               f"frames: {self.numSampledFrames}. We need at " \
+                               f"least one sampled frame per window!"
+                    print(errorStr)
+
+                    errorStr = f"Check the number of sampled " \
+                               f"frames ({self.numSampledFrames}) and the number " \
+                               f"of windows ({self.numWinds}) chosen for this analysis."
+                    print(errorStr)
+
+                    errorStr = (Fore.RED + "ERROR!" + Fore.RESET +
+                                f" Stride was set to {stride}!")
+                    print(errorStr)
+
+                    raise Exception(errorStr)
 
                 selRes = self.workU.select_atoms("segid " + " ".join(self.segIDs))
                 searchSelRes = selRes.select_atoms("not (name H* or name [123]H*)")

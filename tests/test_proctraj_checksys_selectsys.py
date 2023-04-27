@@ -102,6 +102,33 @@ class TestPackageSysVerificationSelection:
         dnap_fail.checkSystem()
         dnap_fail.selectSystem(withSolvent=False, inputSelStr="")
 
+    @pytest.mark.xfail(strict=True)
+    def test_select_system_stride(self, test_data_dir):
+        psfFile = os.path.join(test_data_dir, psf_fn_omp)
+        dcdFiles = [os.path.join(test_data_dir, dcd_fn_omp)]
+
+        dnap_fail = dna.proctraj.DNAproc(notebookMode=False)
+
+        # Test the default wrapper for loading a list of paths to DCDs
+        dnap_fail.loadSystem(psfFile, dcdFiles)
+
+        node_grps = {"OMP": {}}
+        node_grps["OMP"]["N1"] = set("N1 C2 O2 N3 C4 O4 C5 C6 C7 OA OB".split())
+        node_grps["OMP"]["P"] = set("P OP1 OP2 OP3 O5' C5' C4' O4' C1' C3' C2' "
+                                    "O2' O3'".split())
+
+        # TEST STRIDE LENGTH
+        dnap_fail.setNumWinds(1)
+        dnap_fail.setNumSampledFrames(200)  # INDUCE HUGE STRIDE
+        # STRIDE WILL BE TOO LARGE FOR WINDOW LENGTH
+
+        dnap_fail.setSolvNames(["TIP3"])
+        dnap_fail.setSegIDs(["OMP", "ENZY"])
+        dnap_fail.setNodeGroups(node_grps)
+
+        dnap_fail.checkSystem()
+        dnap_fail.selectSystem(withSolvent=True)
+
     @pytest.mark.parametrize(("solv", "sel", "verb", "n_atoms"), [
         (True, "protein", 0, 3291),
         (True, "protein and (not (name H* or name [123]H*))", 0, 1635),
