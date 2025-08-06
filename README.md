@@ -1,3 +1,10 @@
+**ARCHIVE**
+===========================
+
+This is an archive copy of the development repo for the Dynamical Network Analysis python package, kept here for historical reasons. The new repo can be found here:
+
+https://gitlab.com/comp-biochem-csu/dynetan
+
 Dynamical Network Analysis
 ===========================
 
